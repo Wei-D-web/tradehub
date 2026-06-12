@@ -67,15 +67,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Auth middleware ──
-@app.middleware("http")
-async def auth_middleware(request: Request, call_next):
-    path = request.url.path
-    # Only protect /api/* routes; let static files pass through
-    if path.startswith("/api/") and path not in PUBLIC_PATHS:
-        if not request.session.get("authenticated"):
-            return JSONResponse(status_code=401, content={"detail": "请先登录"})
-    return await call_next(request)
+# ── Auth middleware (pure ASGI — must be added before CORS but after Session) ──
+from starlette.types import ASGIApp, Scope, Receive, Send
+
+
+class AuthMiddleware:
+    """Pure ASGI middleware that checks session auth for /api/* routes.
+
+    Uses direct scope inspection instead of BaseHTTPMiddleware to avoid
+    compatibility issues with SessionMiddleware.
+    """
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] == "http":
+            path = scope.get("path", "")
+            if path.startswith("/api/") and path not in PUBLIC_PATHS:
+                session = scope.get("session", {})
+                if not session.get("authenticated"):
+                    response = JSONResponse(status_code=401, content={"detail": "请先登录"})
+                    await response(scope, receive, send)
+                    return
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(AuthMiddleware)
 
 # ── API 路由 ──
 app.include_router(customers.router)

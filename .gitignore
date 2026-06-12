@@ -8,3 +8,4 @@ backend/data/
 .env
 frontend/dist/
 .vite/
+*.tsbuildinfo
