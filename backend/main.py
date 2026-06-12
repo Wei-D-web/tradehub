@@ -10,15 +10,17 @@ TradeHub — 进贸通 后端入口
 
 import os
 import sys
+import time
+import hmac
+import hashlib
 from pathlib import Path
-
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
-from starlette.middleware.sessions import SessionMiddleware
+from starlette.types import ASGIApp, Scope, Receive, Send
 import uvicorn
 
 from database import engine, Base
@@ -36,9 +38,63 @@ FRONTEND_DIST = (Path(__file__).parent.parent / "frontend" / "dist").resolve()
 # ── 密码保护 ──
 SECRET_KEY = os.getenv("TRADEHUB_SECRET_KEY", "tradehub-dev-secret-change-in-production")
 TRADEHUB_PASSWORD = os.getenv("TRADEHUB_PASSWORD", "tradehub123")
+AUTH_COOKIE = "tradehub_token"
+TOKEN_MAX_AGE = 14 * 24 * 3600  # 14 days
 
 # Public endpoints that don't need auth
 PUBLIC_PATHS = {"/api/health", "/api/login", "/api/logout"}
+
+
+def _make_token(password: str) -> str:
+    """Create a time-limited HMAC token from password."""
+    ts = int(time.time())
+    msg = f"{password}:{ts}"
+    sig = hmac.new(SECRET_KEY.encode(), msg.encode(), hashlib.sha256).hexdigest()[:24]
+    return f"{ts}:{sig}"
+
+
+def _verify_token(token: str) -> bool:
+    """Verify a token is valid and not expired."""
+    try:
+        ts_str, sig = token.split(":", 1)
+        ts = int(ts_str)
+        if time.time() - ts > TOKEN_MAX_AGE:
+            return False
+        expected = hmac.new(
+            SECRET_KEY.encode(),
+            f"{TRADEHUB_PASSWORD}:{ts}".encode(),
+            hashlib.sha256,
+        ).hexdigest()[:24]
+        return hmac.compare_digest(sig, expected)
+    except (ValueError, AttributeError):
+        return False
+
+
+def _get_token_from_scope(scope: Scope) -> str | None:
+    """Extract tradehub_token cookie value from ASGI scope headers."""
+    for header_name, header_value in scope.get("headers", []):
+        if header_name == b"cookie":
+            for part in header_value.decode("latin-1").split("; "):
+                if part.startswith(f"{AUTH_COOKIE}="):
+                    return part[len(AUTH_COOKIE) + 1:]
+    return None
+
+
+# ── Auth middleware (pure ASGI, no third-party deps) ──
+class AuthMiddleware:
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] == "http":
+            path = scope.get("path", "")
+            if path.startswith("/api/") and path not in PUBLIC_PATHS:
+                token = _get_token_from_scope(scope)
+                if not token or not _verify_token(token):
+                    response = JSONResponse(status_code=401, content={"detail": "请先登录"})
+                    await response(scope, receive, send)
+                    return
+        await self.app(scope, receive, send)
 
 
 @asynccontextmanager
@@ -55,10 +111,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Session (for password protection)
-app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, same_site="lax", https_only=False)
-
-# CORS
+# Middleware order: Auth (outermost) → CORS → Router
+app.add_middleware(AuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"] if PRODUCTION else ["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173"],
@@ -66,48 +120,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# ── Auth middleware (pure ASGI — must be added before CORS but after Session) ──
-from starlette.types import ASGIApp, Scope, Receive, Send
-from itsdangerous import URLSafeTimedSerializer
-
-
-class AuthMiddleware:
-    """Pure ASGI middleware that checks session auth for /api/* routes.
-
-    Manually verifies the session cookie to avoid BaseHTTPMiddleware
-    incompatibility with SessionMiddleware.
-    """
-    def __init__(self, app: ASGIApp):
-        self.app = app
-        self.session_cookie = "session"
-        self.signer = URLSafeTimedSerializer(SECRET_KEY, salt="cookie-session")
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send):
-        if scope["type"] == "http":
-            path = scope.get("path", "")
-            if path.startswith("/api/") and path not in PUBLIC_PATHS:
-                # Manually parse session cookie from headers
-                authenticated = False
-                for header_name, header_value in scope.get("headers", []):
-                    if header_name == b"cookie":
-                        for part in header_value.decode("latin-1").split("; "):
-                            if part.startswith(f"{self.session_cookie}="):
-                                raw = part[len(self.session_cookie) + 1:]
-                                try:
-                                    data = self.signer.loads(raw)
-                                    authenticated = data.get("authenticated", False)
-                                except Exception:
-                                    pass
-                                break
-                if not authenticated:
-                    response = JSONResponse(status_code=401, content={"detail": "请先登录"})
-                    await response(scope, receive, send)
-                    return
-        await self.app(scope, receive, send)
-
-
-app.add_middleware(AuthMiddleware)
 
 # ── API 路由 ──
 app.include_router(customers.router)
@@ -127,7 +139,6 @@ app.include_router(dashboard.router)
 
 
 # ── Auth endpoints ──
-
 from pydantic import BaseModel
 
 class LoginBody(BaseModel):
@@ -135,27 +146,37 @@ class LoginBody(BaseModel):
 
 
 @app.post("/api/login")
-async def login(body: LoginBody, request: Request):
+async def login(body: LoginBody):
     if body.password != TRADEHUB_PASSWORD:
         return JSONResponse(status_code=401, content={"detail": "密码错误"})
-    request.session["authenticated"] = True
-    return {"ok": True}
+    token = _make_token(body.password)
+    response = JSONResponse(content={"ok": True})
+    response.set_cookie(
+        AUTH_COOKIE, token,
+        max_age=TOKEN_MAX_AGE,
+        httponly=True,
+        samesite="lax",
+        path="/",
+    )
+    return response
 
 
 @app.post("/api/logout")
-async def logout(request: Request):
-    request.session.clear()
-    return {"ok": True}
+async def logout():
+    response = JSONResponse(content={"ok": True})
+    response.delete_cookie(AUTH_COOKIE, path="/")
+    return response
 
 
 @app.get("/api/health")
 def health(request: Request):
+    token = request.cookies.get(AUTH_COOKIE)
     return {
         "ok": True,
         "version": "1.0.0",
         "name": "TradeHub",
         "mode": "production" if PRODUCTION else "development",
-        "authenticated": request.session.get("authenticated", False),
+        "authenticated": bool(token and _verify_token(token)),
     }
 
 
