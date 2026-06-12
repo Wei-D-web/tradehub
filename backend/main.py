@@ -33,7 +33,10 @@ from routers import (
 )
 
 PRODUCTION = "--production" in sys.argv or os.getenv("TRADEHUB_PRODUCTION", "").lower() in ("1", "true", "yes")
-FRONTEND_DIST = (Path(__file__).parent.parent / "frontend" / "dist").resolve()
+# Resolve frontend dist: in Docker it's at /app/frontend/dist, locally at ../frontend/dist
+_dist_docker = (Path(__file__).parent / "frontend" / "dist").resolve()
+_dist_local = (Path(__file__).parent.parent / "frontend" / "dist").resolve()
+FRONTEND_DIST = _dist_docker if _dist_docker.exists() else _dist_local
 
 # ── 密码保护 ──
 SECRET_KEY = os.getenv("TRADEHUB_SECRET_KEY", "tradehub-dev-secret-change-in-production")
