@@ -69,23 +69,38 @@ app.add_middleware(
 
 # ── Auth middleware (pure ASGI — must be added before CORS but after Session) ──
 from starlette.types import ASGIApp, Scope, Receive, Send
+from itsdangerous import URLSafeTimedSerializer
 
 
 class AuthMiddleware:
     """Pure ASGI middleware that checks session auth for /api/* routes.
 
-    Uses direct scope inspection instead of BaseHTTPMiddleware to avoid
-    compatibility issues with SessionMiddleware.
+    Manually verifies the session cookie to avoid BaseHTTPMiddleware
+    incompatibility with SessionMiddleware.
     """
     def __init__(self, app: ASGIApp):
         self.app = app
+        self.session_cookie = "session"
+        self.signer = URLSafeTimedSerializer(SECRET_KEY, salt="cookie-session")
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
         if scope["type"] == "http":
             path = scope.get("path", "")
             if path.startswith("/api/") and path not in PUBLIC_PATHS:
-                session = scope.get("session", {})
-                if not session.get("authenticated"):
+                # Manually parse session cookie from headers
+                authenticated = False
+                for header_name, header_value in scope.get("headers", []):
+                    if header_name == b"cookie":
+                        for part in header_value.decode("latin-1").split("; "):
+                            if part.startswith(f"{self.session_cookie}="):
+                                raw = part[len(self.session_cookie) + 1:]
+                                try:
+                                    data = self.signer.loads(raw)
+                                    authenticated = data.get("authenticated", False)
+                                except Exception:
+                                    pass
+                                break
+                if not authenticated:
                     response = JSONResponse(status_code=401, content={"detail": "请先登录"})
                     await response(scope, receive, send)
                     return
