@@ -28,4 +28,4 @@ ENV TRADEHUB_PORT=8890
 
 EXPOSE 8890
 
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8890"]
+CMD python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8890}
