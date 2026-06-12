@@ -40,7 +40,7 @@ FRONTEND_DIST = _dist_docker if _dist_docker.exists() else _dist_local
 
 # ── 密码保护 ──
 SECRET_KEY = os.getenv("TRADEHUB_SECRET_KEY", "tradehub-dev-secret-change-in-production")
-TRADEHUB_PASSWORD = os.getenv("TRADEHUB_PASSWORD", "tradehub123")
+TRADEHUB_PASSWORD = os.getenv("TRADEHUB_PASSWORD", "*#!ge@GxfR1xB1mu")
 AUTH_COOKIE = "tradehub_token"
 TOKEN_MAX_AGE = 14 * 24 * 3600  # 14 days
 
