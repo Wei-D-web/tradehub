@@ -46,9 +46,13 @@ def list_customers(
 
     result = []
     for r in rows:
-        d = CustomerOut.model_validate(r)
-        d.order_count = order_counts.get(r.id, 0)
-        result.append(d)
+        try:
+            d = CustomerOut.model_validate(r)
+            d.order_count = order_counts.get(r.id, 0)
+            result.append(d)
+        except Exception as e:
+            import traceback
+            raise HTTPException(500, f"model_validate failed: {e}\n{traceback.format_exc()}")
     return result
 
 
