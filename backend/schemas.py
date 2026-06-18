@@ -9,36 +9,6 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 # ── Generic ────────────────────────────────────────────
 
-class TradeHubSchema(BaseModel):
-    """Base schema: coerces None → '' for str fields when loading from nullable DB columns."""
-
-    @model_validator(mode='before')
-    @classmethod
-    def _coerce_none_str_to_empty(cls, data: Any) -> Any:
-        """Fix nullable DB columns: convert None → '' for all str-typed fields."""
-        if data is None or isinstance(data, dict):
-            return data
-        # from_attributes: data is the ORM object
-        # Collect str-field names declared on this schema
-        str_fields = {
-            name for name, info in cls.model_fields.items()
-            if info.annotation is str
-        }
-        if not str_fields:
-            return data
-        # Build a safe dict copy, replacing None with ""
-        fixed: dict[str, Any] = {}
-        for name, info in cls.model_fields.items():
-            try:
-                val = getattr(data, name)
-            except AttributeError:
-                continue  # computed/default-only fields (not on ORM)
-            if name in str_fields and val is None:
-                val = ""
-            fixed[name] = val
-        return fixed
-
-
 class MsgResponse(BaseModel):
     ok: bool = True
     message: str = ""
@@ -60,7 +30,7 @@ class CustomerContactCreate(BaseModel):
     is_primary: bool = False
 
 
-class CustomerContactOut(CustomerContactCreate, TradeHubSchema):
+class CustomerContactOut(CustomerContactCreate):
     id: int
     customer_id: int
     created_at: datetime
@@ -94,7 +64,7 @@ class CustomerUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
-class CustomerOut(TradeHubSchema):
+class CustomerOut(BaseModel):
     id: int
     name: str
     contact_person: str
@@ -114,6 +84,13 @@ class CustomerOut(TradeHubSchema):
 
     class Config:
         from_attributes = True
+
+    @field_validator('contact_person', 'phone', 'email', 'company_address',
+                     'industry_tags', 'source', 'notes', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        """Coerce NULL database values to empty string."""
+        return v if v is not None else ""
 
 
 # ── Supplier ────────────────────────────────────────────
@@ -161,7 +138,7 @@ class SupplierQuoteCreate(BaseModel):
     valid_until: Optional[date] = None
 
 
-class SupplierQuoteOut(SupplierQuoteCreate, TradeHubSchema):
+class SupplierQuoteOut(SupplierQuoteCreate):
     id: int
     supplier_id: int
     quoted_at: datetime
@@ -172,7 +149,7 @@ class SupplierQuoteOut(SupplierQuoteCreate, TradeHubSchema):
         from_attributes = True
 
 
-class SupplierOut(TradeHubSchema):
+class SupplierOut(BaseModel):
     id: int
     name: str
     country: str
@@ -193,6 +170,13 @@ class SupplierOut(TradeHubSchema):
 
     class Config:
         from_attributes = True
+
+    @field_validator('country', 'contact_person', 'phone', 'email', 'website',
+                     'product_categories', 'brands', 'payment_terms', 'notes',
+                     mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 # ── Product ────────────────────────────────────────────
@@ -221,7 +205,7 @@ class ProductUpdate(BaseModel):
     specifications: Optional[str] = None
 
 
-class ProductOut(TradeHubSchema):
+class ProductOut(BaseModel):
     id: int
     name: str
     brand: str
@@ -237,6 +221,13 @@ class ProductOut(TradeHubSchema):
 
     class Config:
         from_attributes = True
+
+    @field_validator('brand', 'origin_country', 'category', 'sku', 'unit',
+                     'hs_code', 'description', 'specifications', 'image_url',
+                     mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 # ── Freight Forwarder ──────────────────────────────────
@@ -273,7 +264,7 @@ class FreightQuoteCreate(BaseModel):
     valid_until: Optional[date] = None
 
 
-class FreightQuoteOut(FreightQuoteCreate, TradeHubSchema):
+class FreightQuoteOut(FreightQuoteCreate):
     id: int
     forwarder_id: int
     quoted_at: datetime
@@ -283,7 +274,7 @@ class FreightQuoteOut(FreightQuoteCreate, TradeHubSchema):
         from_attributes = True
 
 
-class ForwarderOut(TradeHubSchema):
+class ForwarderOut(BaseModel):
     id: int
     name: str
     contact_person: str
@@ -330,7 +321,7 @@ class QuotationUpdate(BaseModel):
     notes: Optional[str] = None
 
 
-class QuotationOut(TradeHubSchema):
+class QuotationOut(BaseModel):
     id: int
     customer_id: Optional[int]
     customer_name: str = ""
@@ -378,7 +369,7 @@ class OrderUpdate(BaseModel):
     notes: Optional[str] = None
 
 
-class OrderTimelineOut(TradeHubSchema):
+class OrderTimelineOut(BaseModel):
     id: int
     event_type: str
     description: str
@@ -389,7 +380,7 @@ class OrderTimelineOut(TradeHubSchema):
         from_attributes = True
 
 
-class OrderOut(TradeHubSchema):
+class OrderOut(BaseModel):
     id: int
     order_no: str
     customer_id: Optional[int]
@@ -431,7 +422,7 @@ class ContractUpdate(BaseModel):
     content_json: Optional[dict] = None
 
 
-class ContractOut(TradeHubSchema):
+class ContractOut(BaseModel):
     id: int
     order_id: Optional[int]
     contract_no: str
@@ -474,7 +465,7 @@ class ShipmentUpdate(BaseModel):
     notes: Optional[str] = None
 
 
-class ShipmentOut(TradeHubSchema):
+class ShipmentOut(BaseModel):
     id: int
     order_id: int
     order_no: str = ""
@@ -521,7 +512,7 @@ class TicketCommentCreate(BaseModel):
     author: str = ""
 
 
-class TicketCommentOut(TicketCommentCreate, TradeHubSchema):
+class TicketCommentOut(TicketCommentCreate):
     id: int
     ticket_id: int
     created_at: datetime
@@ -530,7 +521,7 @@ class TicketCommentOut(TicketCommentCreate, TradeHubSchema):
         from_attributes = True
 
 
-class TicketOut(TradeHubSchema):
+class TicketOut(BaseModel):
     id: int
     order_id: Optional[int]
     order_no: str = ""
@@ -570,7 +561,7 @@ class RMAUpdate(BaseModel):
     refund_amount: Optional[float] = None
 
 
-class RMAOut(TradeHubSchema):
+class RMAOut(BaseModel):
     id: int
     order_id: Optional[int]
     order_no: str = ""
@@ -623,7 +614,7 @@ class ScheduleUpdate(BaseModel):
     notes: Optional[str] = None
 
 
-class ScheduleOut(ScheduleCreate, TradeHubSchema):
+class ScheduleOut(ScheduleCreate):
     id: int
     status: str
 
@@ -631,7 +622,7 @@ class ScheduleOut(ScheduleCreate, TradeHubSchema):
         from_attributes = True
 
 
-class TechnicianOut(TradeHubSchema):
+class TechnicianOut(BaseModel):
     id: int
     name: str
     phone: str
@@ -661,7 +652,7 @@ class KnowledgeUpdate(BaseModel):
     tags: Optional[str] = None
 
 
-class KnowledgeOut(TradeHubSchema):
+class KnowledgeOut(BaseModel):
     id: int
     title: str
     content: str
@@ -701,7 +692,7 @@ class PaymentCreate(BaseModel):
     reference_no: str = ""
 
 
-class InvoiceOut(TradeHubSchema):
+class InvoiceOut(BaseModel):
     id: int
     order_id: Optional[int]
     order_no: str = ""
@@ -719,7 +710,7 @@ class InvoiceOut(TradeHubSchema):
         from_attributes = True
 
 
-class PaymentOut(TradeHubSchema):
+class PaymentOut(BaseModel):
     id: int
     invoice_id: Optional[int]
     order_id: Optional[int]
@@ -772,7 +763,7 @@ class CertificationUpdate(BaseModel):
     attachment_url: Optional[str] = None
 
 
-class CertificationOut(TradeHubSchema):
+class CertificationOut(BaseModel):
     id: int
     product_id: Optional[int]
     product_name: str
@@ -817,7 +808,7 @@ class ExhibitionUpdate(BaseModel):
     notes: Optional[str] = None
 
 
-class ExhibitionOut(TradeHubSchema):
+class ExhibitionOut(BaseModel):
     id: int
     name: str
     date_start: Optional[date]
@@ -868,7 +859,7 @@ class LeadUpdate(BaseModel):
     notes: Optional[str] = None
 
 
-class LeadOut(TradeHubSchema):
+class LeadOut(BaseModel):
     id: int
     exhibition_id: Optional[int]
     exhibition_name: str = ""
