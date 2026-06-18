@@ -187,10 +187,37 @@ class AuthMiddleware:
         await self.app(scope, receive, send)
 
 
+def _migrate_db():
+    """Add missing columns to existing SQLite tables (non-destructive)."""
+    import sqlite3
+    db_path = Path(__file__).parent / "data" / "tradehub.db"
+    if not db_path.exists():
+        return
+    conn = sqlite3.connect(str(db_path))
+    cur = conn.cursor()
+    try:
+        expected = {
+            "customers": {"exhibition_id": "INTEGER REFERENCES exhibitions(id) ON DELETE SET NULL"},
+            "suppliers": {"brands": "VARCHAR(500) DEFAULT ''", "agency_start": "DATE", "agency_end": "DATE"},
+            "products": {"brand": "VARCHAR(100) DEFAULT ''", "origin_country": "VARCHAR(50) DEFAULT ''"},
+        }
+        for table, columns in expected.items():
+            cur.execute(f"PRAGMA table_info({table})")
+            existing = {r[1] for r in cur.fetchall()}
+            for col_name, col_type in columns.items():
+                if col_name not in existing:
+                    cur.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}")
+                    print(f"  📦 迁移: 添加列 {table}.{col_name} {col_type}")
+        conn.commit()
+    finally:
+        conn.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Create tables on startup."""
+    """Create tables on startup + migrate missing columns."""
     Base.metadata.create_all(bind=engine)
+    _migrate_db()
     yield
 
 
