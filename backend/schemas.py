@@ -38,6 +38,11 @@ class CustomerContactOut(CustomerContactCreate):
     class Config:
         from_attributes = True
 
+    @field_validator('title', 'phone', 'email', 'wechat', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
+
 
 class CustomerCreate(BaseModel):
     name: str
@@ -147,6 +152,10 @@ class SupplierQuoteOut(SupplierQuoteCreate):
 
     class Config:
         from_attributes = True
+    @field_validator('product_name', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 class SupplierOut(BaseModel):
@@ -272,6 +281,10 @@ class FreightQuoteOut(FreightQuoteCreate):
 
     class Config:
         from_attributes = True
+    @field_validator('origin', 'destination', 'incoterms', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 class ForwarderOut(BaseModel):
@@ -289,6 +302,10 @@ class ForwarderOut(BaseModel):
 
     class Config:
         from_attributes = True
+    @field_validator('contact_person', 'phone', 'email', 'transport_modes', 'notes', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 # ── Quotation ──────────────────────────────────────────
@@ -339,6 +356,10 @@ class QuotationOut(BaseModel):
 
     class Config:
         from_attributes = True
+    @field_validator('customer_name', 'notes', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 # ── Order ──────────────────────────────────────────────
@@ -378,6 +399,10 @@ class OrderTimelineOut(BaseModel):
 
     class Config:
         from_attributes = True
+    @field_validator('description', 'operator', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 class OrderOut(BaseModel):
@@ -404,6 +429,10 @@ class OrderOut(BaseModel):
 
     class Config:
         from_attributes = True
+    @field_validator('customer_name', 'supplier_name', 'forwarder_name', 'notes', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 # ── Contract ───────────────────────────────────────────
@@ -435,6 +464,10 @@ class ContractOut(BaseModel):
 
     class Config:
         from_attributes = True
+    @field_validator('type', 'party_name', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 # ── Logistics ───────────────────────────────────────────
@@ -484,6 +517,10 @@ class ShipmentOut(BaseModel):
 
     class Config:
         from_attributes = True
+    @field_validator('order_no', 'carrier', 'tracking_no', 'origin', 'destination', 'notes', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 # ── After-Sales Ticket ─────────────────────────────────
@@ -519,6 +556,10 @@ class TicketCommentOut(TicketCommentCreate):
 
     class Config:
         from_attributes = True
+    @field_validator('author', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 class TicketOut(BaseModel):
@@ -542,6 +583,10 @@ class TicketOut(BaseModel):
 
     class Config:
         from_attributes = True
+    @field_validator('order_no', 'customer_name', 'technician_name', 'description', 'resolution', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 # ── RMA ────────────────────────────────────────────────
@@ -576,6 +621,10 @@ class RMAOut(BaseModel):
 
     class Config:
         from_attributes = True
+    @field_validator('order_no', 'product_name', 'reason', 'return_tracking_no', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 # ── Technician ─────────────────────────────────────────
@@ -620,6 +669,10 @@ class ScheduleOut(ScheduleCreate):
 
     class Config:
         from_attributes = True
+    @field_validator('notes', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 class TechnicianOut(BaseModel):
@@ -634,6 +687,10 @@ class TechnicianOut(BaseModel):
 
     class Config:
         from_attributes = True
+    @field_validator('phone', 'email', 'specialties', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 # ── Knowledge ───────────────────────────────────────────
@@ -664,6 +721,10 @@ class KnowledgeOut(BaseModel):
 
     class Config:
         from_attributes = True
+    @field_validator('content', 'category', 'tags', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 # ── Finance ────────────────────────────────────────────
@@ -708,6 +769,10 @@ class InvoiceOut(BaseModel):
 
     class Config:
         from_attributes = True
+    @field_validator('order_no', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 class PaymentOut(BaseModel):
@@ -722,6 +787,10 @@ class PaymentOut(BaseModel):
 
     class Config:
         from_attributes = True
+    @field_validator('reference_no', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 class ProfitSummary(BaseModel):
@@ -782,6 +851,10 @@ class CertificationOut(BaseModel):
 
     class Config:
         from_attributes = True
+    @field_validator('product_name', 'brand', 'model', 'cert_number', 'issuing_body', 'notes', 'attachment_url', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 # ── Exhibition ─────────────────────────────────────────
@@ -825,6 +898,10 @@ class ExhibitionOut(BaseModel):
 
     class Config:
         from_attributes = True
+    @field_validator('location', 'city', 'booth_number', 'notes', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 # ── Lead ───────────────────────────────────────────────
@@ -879,3 +956,7 @@ class LeadOut(BaseModel):
 
     class Config:
         from_attributes = True
+    @field_validator('exhibition_name', 'contact_name', 'contact_phone', 'contact_email', 'position', 'requirements', 'notes', mode='before')
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
