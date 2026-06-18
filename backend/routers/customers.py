@@ -1,6 +1,7 @@
 """Customer CRUD router."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -17,12 +18,13 @@ def _client_ip(request: Request) -> str:
     return xff.split(",")[0].strip() if xff else (request.client.host if request.client else "unknown")
 
 
-@router.get("", response_model=list[CustomerOut])
+@router.get("")
 def list_customers(
     search: str = "",
     is_active: bool | None = None,
     db: Session = Depends(get_db),
 ):
+    import json
     try:
         q = db.query(Customer)
         if search:
@@ -36,30 +38,33 @@ def list_customers(
         if is_active is not None:
             q = q.filter(Customer.is_active == is_active)
         rows = q.order_by(Customer.updated_at.desc()).all()
-
-        # Batch-load order counts in 1 query
-        order_counts = {}
-        if rows:
-            counts = db.query(Order.customer_id, func.count(Order.id)).filter(
-                Order.customer_id.in_([r.id for r in rows])
-            ).group_by(Order.customer_id).all()
-            order_counts = dict(counts)
-
+        if not rows:
+            return JSONResponse(content=[])
+        # Manually build dicts, handling NULL
         result = []
         for r in rows:
-            try:
-                d = CustomerOut.model_validate(r)
-                d.order_count = order_counts.get(r.id, 0)
-                result.append(d)
-            except Exception as e:
-                import traceback
-                raise HTTPException(500, f"model_validate failed for id={r.id}: {e}\n{traceback.format_exc()}")
-        return result
-    except HTTPException:
-        raise
+            item = {}
+            for col in r.__table__.columns:
+                v = getattr(r, col.name)
+                item[col.name] = "" if (v is None and isinstance(col.type, __import__('sqlalchemy').String)) else v
+            item['exhibition_name'] = ""
+            item['order_count'] = db.query(func.count(Order.id)).filter(Order.customer_id == r.id).scalar() or 0
+            item['contacts'] = []
+            for ct in (r.contacts or []):
+                citem = {}
+                for col in ct.__table__.columns:
+                    cv = getattr(ct, col.name)
+                    citem[col.name] = "" if (cv is None and hasattr(col.type, 'length')) else cv
+                item['contacts'].append(citem)
+            item['created_at'] = item['created_at'].isoformat() if item.get('created_at') else None
+            item['updated_at'] = item['updated_at'].isoformat() if item.get('updated_at') else None
+            for ct in item['contacts']:
+                ct['created_at'] = ct['created_at'].isoformat() if ct.get('created_at') else None
+            result.append(item)
+        return JSONResponse(content=result)
     except Exception as e:
         import traceback
-        raise HTTPException(500, f"list_customers error: {type(e).__name__}: {e}\n{traceback.format_exc()}")
+        return JSONResponse(status_code=500, content={"error": f"{type(e).__name__}: {e}\n{traceback.format_exc()}"})
 
 
 @router.get("/{cid}", response_model=CustomerOut)
