@@ -23,37 +23,43 @@ def list_customers(
     is_active: bool | None = None,
     db: Session = Depends(get_db),
 ):
-    q = db.query(Customer)
-    if search:
-        kw = f"%{search}%"
-        q = q.filter(
-            (Customer.name.ilike(kw)) |
-            (Customer.contact_person.ilike(kw)) |
-            (Customer.phone.ilike(kw)) |
-            (Customer.email.ilike(kw))
-        )
-    if is_active is not None:
-        q = q.filter(Customer.is_active == is_active)
-    rows = q.order_by(Customer.updated_at.desc()).all()
+    try:
+        q = db.query(Customer)
+        if search:
+            kw = f"%{search}%"
+            q = q.filter(
+                (Customer.name.ilike(kw)) |
+                (Customer.contact_person.ilike(kw)) |
+                (Customer.phone.ilike(kw)) |
+                (Customer.email.ilike(kw))
+            )
+        if is_active is not None:
+            q = q.filter(Customer.is_active == is_active)
+        rows = q.order_by(Customer.updated_at.desc()).all()
 
-    # Batch-load order counts in 1 query
-    order_counts = {}
-    if rows:
-        counts = db.query(Order.customer_id, func.count(Order.id)).filter(
-            Order.customer_id.in_([r.id for r in rows])
-        ).group_by(Order.customer_id).all()
-        order_counts = dict(counts)
+        # Batch-load order counts in 1 query
+        order_counts = {}
+        if rows:
+            counts = db.query(Order.customer_id, func.count(Order.id)).filter(
+                Order.customer_id.in_([r.id for r in rows])
+            ).group_by(Order.customer_id).all()
+            order_counts = dict(counts)
 
-    result = []
-    for r in rows:
-        try:
-            d = CustomerOut.model_validate(r)
-            d.order_count = order_counts.get(r.id, 0)
-            result.append(d)
-        except Exception as e:
-            import traceback
-            raise HTTPException(500, f"model_validate failed: {e}\n{traceback.format_exc()}")
-    return result
+        result = []
+        for r in rows:
+            try:
+                d = CustomerOut.model_validate(r)
+                d.order_count = order_counts.get(r.id, 0)
+                result.append(d)
+            except Exception as e:
+                import traceback
+                raise HTTPException(500, f"model_validate failed for id={r.id}: {e}\n{traceback.format_exc()}")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        raise HTTPException(500, f"list_customers error: {type(e).__name__}: {e}\n{traceback.format_exc()}")
 
 
 @router.get("/{cid}", response_model=CustomerOut)
