@@ -1,7 +1,7 @@
 """RMA Returns router."""
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
 from models import RMAReturn, Order, Product
@@ -24,12 +24,12 @@ def list_rmas(status: str = "", order_id: int | None = None, db: Session = Depen
         q = q.filter(RMAReturn.status == status)
     if order_id:
         q = q.filter(RMAReturn.order_id == order_id)
-    return [_enrich(r) for r in q.all()]
+    return [_enrich(r) for r in q.options(joinedload(RMAReturn.order), joinedload(RMAReturn.product)).all()]
 
 
 @router.get("/{rid}", response_model=RMAOut)
 def get_rma(rid: int, db: Session = Depends(get_db)):
-    r = db.query(RMAReturn).get(rid)
+    r = db.query(RMAReturn).options(joinedload(RMAReturn.order), joinedload(RMAReturn.product)).get(rid)
     if not r:
         raise HTTPException(404, "RMA不存在")
     return _enrich(r)
@@ -46,7 +46,7 @@ def create_rma(body: RMACreate, db: Session = Depends(get_db)):
 
 @router.put("/{rid}", response_model=RMAOut)
 def update_rma(rid: int, body: RMAUpdate, db: Session = Depends(get_db)):
-    r = db.query(RMAReturn).get(rid)
+    r = db.query(RMAReturn).options(joinedload(RMAReturn.order), joinedload(RMAReturn.product)).get(rid)
     if not r:
         raise HTTPException(404, "RMA不存在")
     for k, v in body.model_dump(exclude_unset=True).items():
@@ -58,7 +58,7 @@ def update_rma(rid: int, body: RMAUpdate, db: Session = Depends(get_db)):
 
 @router.delete("/{rid}", response_model=MsgResponse)
 def delete_rma(rid: int, db: Session = Depends(get_db)):
-    r = db.query(RMAReturn).get(rid)
+    r = db.query(RMAReturn).options(joinedload(RMAReturn.order), joinedload(RMAReturn.product)).get(rid)
     if not r:
         raise HTTPException(404, "RMA不存在")
     db.delete(r)

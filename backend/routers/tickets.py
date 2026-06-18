@@ -3,7 +3,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
 from models import AfterSalesTicket, TicketComment, Order, Customer, Technician
@@ -35,12 +35,12 @@ def list_tickets(
         q = q.filter(AfterSalesTicket.priority == priority)
     if assigned_to is not None:
         q = q.filter(AfterSalesTicket.assigned_to == assigned_to)
-    return [_enrich(r) for r in q.all()]
+    return [_enrich(r) for r in q.options(joinedload(AfterSalesTicket.order), joinedload(AfterSalesTicket.customer), joinedload(AfterSalesTicket.technician)).all()]
 
 
 @router.get("/{tid}", response_model=TicketOut)
 def get_ticket(tid: int, db: Session = Depends(get_db)):
-    t = db.query(AfterSalesTicket).get(tid)
+    t = db.query(AfterSalesTicket).options(joinedload(AfterSalesTicket.order), joinedload(AfterSalesTicket.customer), joinedload(AfterSalesTicket.technician)).get(tid)
     if not t:
         raise HTTPException(404, "工单不存在")
     return _enrich(t)
@@ -57,7 +57,7 @@ def create_ticket(body: TicketCreate, db: Session = Depends(get_db)):
 
 @router.put("/{tid}", response_model=TicketOut)
 def update_ticket(tid: int, body: TicketUpdate, db: Session = Depends(get_db)):
-    t = db.query(AfterSalesTicket).get(tid)
+    t = db.query(AfterSalesTicket).options(joinedload(AfterSalesTicket.order), joinedload(AfterSalesTicket.customer), joinedload(AfterSalesTicket.technician)).get(tid)
     if not t:
         raise HTTPException(404, "工单不存在")
 
@@ -76,7 +76,7 @@ def update_ticket(tid: int, body: TicketUpdate, db: Session = Depends(get_db)):
 
 @router.delete("/{tid}", response_model=MsgResponse)
 def delete_ticket(tid: int, db: Session = Depends(get_db)):
-    t = db.query(AfterSalesTicket).get(tid)
+    t = db.query(AfterSalesTicket).options(joinedload(AfterSalesTicket.order), joinedload(AfterSalesTicket.customer), joinedload(AfterSalesTicket.technician)).get(tid)
     if not t:
         raise HTTPException(404, "工单不存在")
     db.delete(t)
@@ -95,7 +95,7 @@ def list_comments(tid: int, db: Session = Depends(get_db)):
 
 @router.post("/{tid}/comments", response_model=TicketCommentOut)
 def add_comment(tid: int, body: TicketCommentCreate, db: Session = Depends(get_db)):
-    t = db.query(AfterSalesTicket).get(tid)
+    t = db.query(AfterSalesTicket).options(joinedload(AfterSalesTicket.order), joinedload(AfterSalesTicket.customer), joinedload(AfterSalesTicket.technician)).get(tid)
     if not t:
         raise HTTPException(404, "工单不存在")
     c = TicketComment(ticket_id=tid, **body.model_dump())

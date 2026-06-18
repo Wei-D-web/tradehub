@@ -63,8 +63,8 @@ export const api = {
 
   // Products
   products: {
-    list: (search = '', category = '') =>
-      get(`/products?search=${encodeURIComponent(search)}&category=${encodeURIComponent(category)}`),
+    list: (search = '', category = '', brand = '') =>
+      get(`/products?search=${encodeURIComponent(search)}&category=${encodeURIComponent(category)}&brand=${encodeURIComponent(brand)}`),
     get: (id: number) => get(`/products/${id}`),
     create: (body: Record<string, unknown>) => post('/products', body),
     update: (id: number, body: Record<string, unknown>) => put(`/products/${id}`, body),
@@ -208,5 +208,40 @@ export const api = {
     trend: (months = 6) => get(`/dashboard/trend?months=${months}`),
     orderStatus: () => get('/dashboard/order-status'),
     recent: (limit = 10) => get(`/dashboard/recent?limit=${limit}`),
+    certAlerts: (days = 90) => get(`/dashboard/cert-alerts?days=${days}`),
+    exhibitionSummary: () => get('/dashboard/exhibition-summary'),
+    brandDistribution: () => get('/dashboard/brand-distribution'),
+  },
+
+  // Certifications
+  certifications: {
+    list: (search = '', certType = '', status = '') =>
+      get(`/certifications?search=${encodeURIComponent(search)}&cert_type=${encodeURIComponent(certType)}&status=${encodeURIComponent(status)}`),
+    get: (id: number) => get(`/certifications/${id}`),
+    create: (body: Record<string, unknown>) => post('/certifications', body),
+    update: (id: number, body: Record<string, unknown>) => put(`/certifications/${id}`, body),
+    delete: (id: number) => del(`/certifications/${id}`),
+    expiring: (days = 30) => get(`/certifications/expiring?days=${days}`),
+  },
+
+  // Exhibitions
+  exhibitions: {
+    list: (search = '') => get(`/exhibitions?search=${encodeURIComponent(search)}`),
+    get: (id: number) => get(`/exhibitions/${id}`),
+    create: (body: Record<string, unknown>) => post('/exhibitions', body),
+    update: (id: number, body: Record<string, unknown>) => put(`/exhibitions/${id}`, body),
+    delete: (id: number) => del(`/exhibitions/${id}`),
+    leads: (eid: number) => get(`/exhibitions/${eid}/leads`),
+    roi: () => get('/exhibitions/roi'),
+  },
+
+  // Leads
+  leads: {
+    list: (search = '', source = '', status = '', exhibitionId?: number) =>
+      get(`/leads?search=${encodeURIComponent(search)}&source=${encodeURIComponent(source)}&status=${encodeURIComponent(status)}${exhibitionId !== undefined ? `&exhibition_id=${exhibitionId}` : ''}`),
+    get: (id: number) => get(`/leads/${id}`),
+    create: (body: Record<string, unknown>) => post('/leads', body),
+    update: (id: number, body: Record<string, unknown>) => put(`/leads/${id}`, body),
+    delete: (id: number) => del(`/leads/${id}`),
   },
 }

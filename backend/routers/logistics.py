@@ -1,7 +1,7 @@
 """Logistics / Shipment tracking router."""
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, relationship
 
 from database import get_db
 from models import Order
@@ -14,6 +14,7 @@ from schemas import ShipmentCreate, ShipmentUpdate, ShipmentOut, MsgResponse
 # OR we can add a shipments table. Let's add a lightweight one.
 
 from sqlalchemy import Column, Integer, String, Float, Text, Date, DateTime, ForeignKey
+
 from database import Base
 import datetime as _dt
 
@@ -35,6 +36,8 @@ class Shipment(Base):
     notes = Column(Text, default="")
     created_at = Column(DateTime, default=_dt.datetime.utcnow)
 
+    order = relationship("Order")
+
 
 router = APIRouter(prefix="/api/logistics", tags=["logistics"])
 
@@ -46,7 +49,7 @@ def list_shipments(order_id: int | None = None, status: str = "", db: Session = 
         q = q.filter(Shipment.order_id == order_id)
     if status:
         q = q.filter(Shipment.status == status)
-    rows = q.all()
+    rows = q.options(joinedload(Shipment.order)).all()
     out = []
     for r in rows:
         d = ShipmentOut.model_validate(r)
@@ -57,7 +60,7 @@ def list_shipments(order_id: int | None = None, status: str = "", db: Session = 
 
 @router.get("/{sid}", response_model=ShipmentOut)
 def get_shipment(sid: int, db: Session = Depends(get_db)):
-    r = db.query(Shipment).get(sid)
+    r = db.query(Shipment).options(joinedload(Shipment.order)).get(sid)
     if not r:
         raise HTTPException(404, "物流记录不存在")
     d = ShipmentOut.model_validate(r)

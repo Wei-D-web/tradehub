@@ -1,7 +1,7 @@
 """Freight Forwarder CRUD + quote comparison router."""
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
 from models import FreightForwarder, FreightQuote
@@ -18,12 +18,12 @@ def list_forwarders(search: str = "", is_active: bool | None = None, db: Session
         q = q.filter(FreightForwarder.name.ilike(kw) | FreightForwarder.contact_person.ilike(kw))
     if is_active is not None:
         q = q.filter(FreightForwarder.is_active == is_active)
-    return q.order_by(FreightForwarder.name).all()
+    return q.options(joinedload(FreightForwarder.quotes)).order_by(FreightForwarder.name).all()
 
 
 @router.get("/{fid}", response_model=ForwarderOut)
 def get_forwarder(fid: int, db: Session = Depends(get_db)):
-    r = db.query(FreightForwarder).get(fid)
+    r = db.query(FreightForwarder).options(joinedload(FreightForwarder.quotes)).get(fid)
     if not r:
         raise HTTPException(404, "货代不存在")
     return r

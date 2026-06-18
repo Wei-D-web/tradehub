@@ -4,14 +4,20 @@ import datetime
 import random
 import string
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
 from models import Order, OrderTimeline
 from schemas import OrderCreate, OrderUpdate, OrderOut, MsgResponse
+from audit import audit_log
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
+
+
+def _client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for", "")
+    return xff.split(",")[0].strip() if xff else (request.client.host if request.client else "unknown")
 
 VALID_TRANSITIONS = {
     "inquiry": ["quoted", "cancelled"],
@@ -69,7 +75,7 @@ def get_order(oid: int, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=OrderOut)
-def create_order(body: OrderCreate, db: Session = Depends(get_db)):
+def create_order(body: OrderCreate, db: Session = Depends(get_db), request: Request = None):
     o = Order(
         order_no=_gen_order_no(),
         customer_id=body.customer_id,
@@ -89,14 +95,24 @@ def create_order(body: OrderCreate, db: Session = Depends(get_db)):
     _add_timeline(db, o.id, "created", f"订单创建: {body.notes or ''}")
     db.commit()
     db.refresh(o)
+    if request:
+        audit_log(db, "create", "order", o.id, _client_ip(request), f"新建订单: {o.order_no} (金额 ¥{o.total_revenue:,.0f})")
     return _enrich(o)
 
 
 @router.put("/{oid}", response_model=OrderOut)
-def update_order(oid: int, body: OrderUpdate, db: Session = Depends(get_db)):
+def update_order(oid: int, body: OrderUpdate, db: Session = Depends(get_db), request: Request = None):
     o = db.query(Order).get(oid)
     if not o:
         raise HTTPException(404, "订单不存在")
+
+    # Detect financial changes for audit
+    financial_fields = {"total_revenue", "purchase_cost", "freight_cost", "customs_cost"}
+    changed_financials = {}
+    for k in financial_fields:
+        new_val = getattr(body, k, None)
+        if new_val is not None and new_val != getattr(o, k, 0):
+            changed_financials[k] = (getattr(o, k, 0), new_val)
 
     # Handle status transition
     if body.status and body.status != o.status:
@@ -111,16 +127,24 @@ def update_order(oid: int, body: OrderUpdate, db: Session = Depends(get_db)):
     o.net_profit = _calc_profit(o)
     db.commit()
     db.refresh(o)
+
+    if request and changed_financials:
+        detail = ", ".join(f"{k}: {old}→{new}" for k, (old, new) in changed_financials.items())
+        audit_log(db, "update_amount", "order", o.id, _client_ip(request), f"修改订单金额 {o.order_no}: {detail}")
+
     return _enrich(o)
 
 
 @router.delete("/{oid}", response_model=MsgResponse)
-def delete_order(oid: int, db: Session = Depends(get_db)):
+def delete_order(oid: int, db: Session = Depends(get_db), request: Request = None):
     o = db.query(Order).get(oid)
     if not o:
         raise HTTPException(404, "订单不存在")
+    order_no = o.order_no
     db.delete(o)
     db.commit()
+    if request:
+        audit_log(db, "delete", "order", oid, _client_ip(request), f"删除订单: {order_no}")
     return {"ok": True, "message": "已删除"}
 
 

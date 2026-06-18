@@ -4,6 +4,7 @@ import {
   FileText, ShoppingCart, FileCheck, Ship,
   Wrench, RotateCcw, UserCog, BookOpen,
   Landmark, BarChart3, Menu, X, LogOut,
+  ShieldCheck, Presentation, UserPlus,
 } from 'lucide-react'
 import { ToastProvider } from './components/Toast'
 import LoginScreen from './components/LoginScreen'
@@ -23,6 +24,9 @@ const TechniciansPage = lazy(() => import('./pages/TechniciansPage'))
 const KnowledgePage = lazy(() => import('./pages/KnowledgePage'))
 const FinancePage = lazy(() => import('./pages/FinancePage'))
 const BossPage = lazy(() => import('./pages/BossPage'))
+const CertificationsPage = lazy(() => import('./pages/CertificationsPage'))
+const ExhibitionsPage = lazy(() => import('./pages/ExhibitionsPage'))
+const LeadsPage = lazy(() => import('./pages/LeadsPage'))
 
 function Spinner() {
   return (
@@ -53,6 +57,9 @@ const nav: NavItem[] = [
   { key: 'rma', label: 'RMA退货', icon: RotateCcw, color: '#f97316' },
   { key: 'technicians', label: '技术员', icon: UserCog, color: '#22c55e' },
   { key: 'knowledge', label: '知识库', icon: BookOpen, color: '#a855f7' },
+  { key: 'certifications', label: '证书', icon: ShieldCheck, color: '#6366f1' },
+  { key: 'exhibitions', label: '展会', icon: Presentation, color: '#f59e0b' },
+  { key: 'leads', label: '线索', icon: UserPlus, color: '#10b981' },
   { key: 'finance', label: '财务', icon: Landmark, color: '#64748b' },
   { key: 'boss', label: 'Boss看板', icon: BarChart3, color: '#0f172a' },
 ]
@@ -104,6 +111,9 @@ export default function App() {
       case 'rma': return <Suspense fallback={fallback}><RMAPage /></Suspense>
       case 'technicians': return <Suspense fallback={fallback}><TechniciansPage /></Suspense>
       case 'knowledge': return <Suspense fallback={fallback}><KnowledgePage /></Suspense>
+      case 'certifications': return <Suspense fallback={fallback}><CertificationsPage /></Suspense>
+      case 'exhibitions': return <Suspense fallback={fallback}><ExhibitionsPage /></Suspense>
+      case 'leads': return <Suspense fallback={fallback}><LeadsPage /></Suspense>
       case 'finance': return <Suspense fallback={fallback}><FinancePage /></Suspense>
       case 'boss': return <Suspense fallback={fallback}><BossPage /></Suspense>
       default: return <DashboardPage />
@@ -153,7 +163,7 @@ export default function App() {
         </nav>
 
         <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between">
-          <span className="text-[11px] text-slate-400">TradeHub v1.0</span>
+          <span className="text-[11px] text-slate-400">TradeHub v1.1</span>
           <button onClick={handleLogout} className="text-slate-400 hover:text-red-500 transition-colors" title="退出登录">
             <LogOut className="w-4 h-4" />
           </button>

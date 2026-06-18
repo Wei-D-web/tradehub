@@ -6,7 +6,7 @@ from sqlalchemy import func
 
 from database import get_db
 from models import Technician, WorkSchedule, AfterSalesTicket
-from schemas import TechnicianCreate, TechnicianUpdate, TechnicianOut, ScheduleCreate, ScheduleOut, MsgResponse
+from schemas import TechnicianCreate, TechnicianUpdate, TechnicianOut, ScheduleCreate, ScheduleUpdate, ScheduleOut, MsgResponse
 
 router = APIRouter(prefix="/api/technicians", tags=["technicians"])
 
@@ -17,11 +17,21 @@ def list_technicians(is_available: bool | None = None, db: Session = Depends(get
     if is_available is not None:
         q = q.filter(Technician.is_available == is_available)
     rows = q.all()
-    for r in rows:
-        r.current_load = db.query(func.count(AfterSalesTicket.id)).filter(
-            AfterSalesTicket.assigned_to == r.id,
-            AfterSalesTicket.status.in_(["open", "assigned", "in_progress", "waiting_parts"]),
-        ).scalar() or 0
+
+    if rows:
+        # Batch-load active ticket counts in 1 query
+        loads = dict(
+            db.query(
+                AfterSalesTicket.assigned_to,
+                func.count(AfterSalesTicket.id),
+            ).filter(
+                AfterSalesTicket.assigned_to.in_([r.id for r in rows]),
+                AfterSalesTicket.status.in_(["open", "assigned", "in_progress", "waiting_parts"]),
+            ).group_by(AfterSalesTicket.assigned_to).all()
+        )
+        for r in rows:
+            r.current_load = loads.get(r.id, 0)
+
     return rows
 
 
@@ -90,13 +100,12 @@ def create_schedule(body: ScheduleCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/schedules/{sid}", response_model=ScheduleOut)
-def update_schedule(sid: int, body: dict, db: Session = Depends(get_db)):
+def update_schedule(sid: int, body: ScheduleUpdate, db: Session = Depends(get_db)):
     s = db.query(WorkSchedule).get(sid)
     if not s:
         raise HTTPException(404, "排班不存在")
-    for k, v in body.items():
-        if hasattr(s, k):
-            setattr(s, k, v)
+    for k, v in body.model_dump(exclude_unset=True).items():
+        setattr(s, k, v)
     db.commit()
     db.refresh(s)
     return s

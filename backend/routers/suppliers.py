@@ -1,7 +1,7 @@
 """Supplier CRUD + quote history router."""
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
 from models import Supplier, SupplierQuote, Product
@@ -18,12 +18,12 @@ def list_suppliers(search: str = "", is_active: bool | None = None, db: Session 
         q = q.filter(Supplier.name.ilike(kw) | Supplier.contact_person.ilike(kw))
     if is_active is not None:
         q = q.filter(Supplier.is_active == is_active)
-    return q.order_by(Supplier.updated_at.desc()).all()
+    return q.options(joinedload(Supplier.quotes)).order_by(Supplier.created_at.desc()).all()
 
 
 @router.get("/{sid}", response_model=SupplierOut)
 def get_supplier(sid: int, db: Session = Depends(get_db)):
-    r = db.query(Supplier).get(sid)
+    r = db.query(Supplier).options(joinedload(Supplier.quotes)).get(sid)
     if not r:
         raise HTTPException(404, "供应商不存在")
     return r

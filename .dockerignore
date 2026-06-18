@@ -1,7 +1,36 @@
-node_modules
-__pycache__
-*.pyc
-.git
-frontend/node_modules
-backend/data
-.env
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Python
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/**/*.pyc
+backend/.venv/
+backend/venv/
+backend/data/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.md
+railway.toml
+railway.json
+部署说明.md
+进贸通.spec
+start.sh

@@ -11,7 +11,8 @@ import {
 
 const EMPTY_FORM: SupplierForm = {
   name: '', country: '', contact_person: '', phone: '', email: '',
-  website: '', product_categories: '', payment_terms: '', rating: 0, notes: '',
+  website: '', product_categories: '', brands: '', agency_start: '', agency_end: '',
+  payment_terms: '', rating: 0, notes: '',
 }
 
 export default function SuppliersPage() {
@@ -61,7 +62,9 @@ export default function SuppliersPage() {
     setForm({
       name: s.name, country: s.country, contact_person: s.contact_person,
       phone: s.phone, email: s.email, website: s.website,
-      product_categories: s.product_categories, payment_terms: s.payment_terms,
+      product_categories: s.product_categories,
+      brands: s.brands || '', agency_start: s.agency_start || '', agency_end: s.agency_end || '',
+      payment_terms: s.payment_terms,
       rating: s.rating, notes: s.notes,
     })
     setShowForm(true)
@@ -282,6 +285,15 @@ export default function SuppliersPage() {
                     <InfoItem icon={Tag} label="产品类别" value={detail.product_categories} />
                     <InfoItem icon={DollarSign} label="付款条件" value={detail.payment_terms} />
                   </div>
+                  {(detail.brands || detail.agency_start || detail.agency_end) && (
+                    <div className="bg-indigo-50 rounded-lg p-3">
+                      <p className="text-xs text-indigo-400 mb-2 font-medium">代理信息</p>
+                      {detail.brands && <p className="text-sm text-indigo-700 mb-1">品牌：{detail.brands}</p>}
+                      <p className="text-xs text-indigo-500">
+                        代理期限：{detail.agency_start || '?'} ~ {detail.agency_end || '?'}
+                      </p>
+                    </div>
+                  )}
                   {detail.notes && (
                     <div className="bg-slate-50 rounded-lg p-3">
                       <p className="text-xs text-slate-400 mb-1">备注</p>
@@ -455,6 +467,26 @@ export default function SuppliersPage() {
                     <option value="">请选择</option>
                     {PAYMENT_TERMS_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
+                </div>
+              </div>
+              <div className="bg-indigo-50 rounded-lg p-3 space-y-2">
+                <p className="text-xs text-indigo-400 font-medium">代理信息</p>
+                <div>
+                  <label className="text-xs text-slate-500 mb-1 block">代理品牌</label>
+                  <input className="input" placeholder="如：FAR, CHEMISAFE, KERAPLAN（逗号分隔）" value={form.brands}
+                    onChange={e => setForm({ ...form, brands: e.target.value })} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-slate-500 mb-1 block">代理开始</label>
+                    <input type="date" className="input" value={form.agency_start}
+                      onChange={e => setForm({ ...form, agency_start: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500 mb-1 block">代理结束</label>
+                    <input type="date" className="input" value={form.agency_end}
+                      onChange={e => setForm({ ...form, agency_end: e.target.value })} />
+                  </div>
                 </div>
               </div>
               <div>

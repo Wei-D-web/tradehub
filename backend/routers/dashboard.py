@@ -1,13 +1,14 @@
-"""Boss Dashboard — KPI aggregation + trend data."""
+"""Boss Dashboard — KPI aggregation + trend data + audit log."""
 
 from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, desc
 
 from database import get_db
-from models import Order, AfterSalesTicket, Customer, Invoice
+from models import Order, AfterSalesTicket, Customer, Invoice, AuditLog
+from models import Certification, Exhibition, Lead, Product
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -132,3 +133,124 @@ def recent_activity(limit: int = 10, db: Session = Depends(get_db)):
 
     activity.sort(key=lambda x: x["time"], reverse=True)
     return activity[:limit]
+
+
+# ── Audit Log ──
+@router.get("/audit")
+def audit_trail(limit: int = 100, action: str = "", db: Session = Depends(get_db)):
+    """Recent audit log entries — who did what."""
+    q = db.query(AuditLog).order_by(desc(AuditLog.timestamp))
+    if action:
+        q = q.filter(AuditLog.action == action)
+    rows = q.limit(limit).all()
+    return [
+        {
+            "id": r.id,
+            "timestamp": r.timestamp.isoformat() if r.timestamp else "",
+            "action": r.action,
+            "target_type": r.target_type,
+            "target_id": r.target_id,
+            "operator_ip": r.operator_ip,
+            "summary": r.summary,
+        }
+        for r in rows
+    ]
+
+
+# ── Certification Alerts ──
+@router.get("/cert-alerts")
+def cert_alerts(days: int = 90, db: Session = Depends(get_db)):
+    """Certifications expiring within N days + already expired."""
+    today = date.today()
+    cutoff = today + timedelta(days=days)
+
+    expired = db.query(func.count(Certification.id)).filter(
+        Certification.expiry_date < today
+    ).scalar() or 0
+
+    expiring_30 = db.query(func.count(Certification.id)).filter(
+        Certification.expiry_date >= today,
+        Certification.expiry_date <= today + timedelta(days=30),
+    ).scalar() or 0
+
+    expiring_60 = db.query(func.count(Certification.id)).filter(
+        Certification.expiry_date > today + timedelta(days=30),
+        Certification.expiry_date <= today + timedelta(days=60),
+    ).scalar() or 0
+
+    expiring_90 = db.query(func.count(Certification.id)).filter(
+        Certification.expiry_date > today + timedelta(days=60),
+        Certification.expiry_date <= today + timedelta(days=90),
+    ).scalar() or 0
+
+    total = db.query(func.count(Certification.id)).scalar() or 0
+
+    # Recent expiring/expired list
+    recent = db.query(Certification).filter(
+        Certification.expiry_date <= cutoff,
+    ).order_by(Certification.expiry_date.asc()).limit(10).all()
+
+    items = []
+    for c in recent:
+        delta = (c.expiry_date - today).days if c.expiry_date else 999
+        items.append({
+            "id": c.id,
+            "product_name": c.product_name,
+            "brand": c.brand,
+            "cert_type": c.cert_type,
+            "cert_number": c.cert_number,
+            "expiry_date": c.expiry_date.isoformat() if c.expiry_date else "",
+            "days_left": delta,
+            "status": "expired" if delta < 0 else ("expiring_soon" if delta <= 30 else "valid"),
+        })
+
+    return {
+        "total": total,
+        "expired": expired,
+        "expiring_30": expiring_30,
+        "expiring_60": expiring_60,
+        "expiring_90": expiring_90,
+        "recent_items": items,
+    }
+
+
+# ── Exhibition Summary ──
+@router.get("/exhibition-summary")
+def exhibition_summary(db: Session = Depends(get_db)):
+    """Exhibition ROI and lead pipeline overview."""
+    total_cost = db.query(func.coalesce(func.sum(Exhibition.cost_cny), 0)).scalar() or 0
+    total_exhibitions = db.query(func.count(Exhibition.id)).scalar() or 0
+    total_leads = db.query(func.count(Lead.id)).scalar() or 0
+    exhibition_leads = db.query(func.count(Lead.id)).filter(Lead.source == "exhibition").scalar() or 0
+    won = db.query(func.count(Lead.id)).filter(Lead.status == "won").scalar() or 0
+    quotation_sent = db.query(func.count(Lead.id)).filter(Lead.status == "quoted").scalar() or 0
+    won_value = db.query(func.coalesce(func.sum(Lead.estimated_value_cny), 0)).filter(
+        Lead.status == "won"
+    ).scalar() or 0
+
+    conversion = f"{(won / exhibition_leads * 100):.1f}%" if exhibition_leads > 0 else "0%"
+    cost_per_lead = float(total_cost) / exhibition_leads if exhibition_leads > 0 else 0
+
+    return {
+        "total_exhibitions": total_exhibitions,
+        "total_cost": float(total_cost),
+        "total_leads": total_leads,
+        "exhibition_leads": exhibition_leads,
+        "won_leads": won,
+        "quoted_leads": quotation_sent,
+        "conversion_rate": conversion,
+        "won_value_cny": float(won_value),
+        "cost_per_lead_cny": round(cost_per_lead, 2),
+    }
+
+
+# ── Brand Distribution ──
+@router.get("/brand-distribution")
+def brand_distribution(db: Session = Depends(get_db)):
+    """Product count by brand."""
+    rows = db.query(
+        Product.brand, func.count(Product.id)
+    ).filter(
+        Product.brand != "", Product.brand.isnot(None)
+    ).group_by(Product.brand).order_by(func.count(Product.id).desc()).all()
+    return [{"brand": b or "未知", "count": c} for b, c in rows]

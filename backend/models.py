@@ -33,6 +33,7 @@ class Customer(Base):
     company_address = Column(Text, default="")
     industry_tags = Column(String(300), default="")  # comma-separated
     source = Column(String(100), default="")
+    exhibition_id = Column(Integer, ForeignKey("exhibitions.id", ondelete="SET NULL"), nullable=True)
     notes = Column(Text, default="")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=_now)
@@ -41,6 +42,7 @@ class Customer(Base):
     contacts = relationship("CustomerContact", back_populates="customer", cascade="all, delete-orphan")
     quotations = relationship("Quotation", back_populates="customer")
     orders = relationship("Order", back_populates="customer")
+    exhibition = relationship("Exhibition", foreign_keys=[exhibition_id])
 
 
 class CustomerContact(Base):
@@ -72,6 +74,9 @@ class Supplier(Base):
     email = Column(String(200), default="")
     website = Column(String(300), default="")
     product_categories = Column(String(300), default="")  # comma-separated
+    brands = Column(String(500), default="")              # 代理品牌，逗号分隔
+    agency_start = Column(Date, nullable=True)            # 代理开始日期
+    agency_end = Column(Date, nullable=True)              # 代理结束日期
     payment_terms = Column(String(200), default="")
     rating = Column(Integer, default=0)  # 1-5
     notes = Column(Text, default="")
@@ -147,6 +152,8 @@ class Product(Base):
     __tablename__ = "products"
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(300), nullable=False)
+    brand = Column(String(100), default="")          # FAR / CHEMISAFE / KERAPLAN / KARTELL / LIEBHERR / FUMEX
+    origin_country = Column(String(50), default="")   # IT / DE / SE etc
     category = Column(String(100), default="")
     sku = Column(String(100), default="")
     unit = Column(String(20), default="pcs")
@@ -398,3 +405,96 @@ class Payment(Base):
     method = Column(String(30), default="bank_transfer")  # bank_transfer / cash / alipay / wechat
     paid_at = Column(DateTime, default=_now)
     reference_no = Column(String(100), default="")
+
+
+# ═══════════════════════════════════════════════════════
+# Audit Log
+# ═══════════════════════════════════════════════════════
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime, default=_now, index=True)
+    action = Column(String(30), nullable=False)       # create / delete / update_amount / sign / status_change
+    target_type = Column(String(30), nullable=False)   # customer / order / invoice / contract / quotation
+    target_id = Column(Integer, nullable=True)         # PK of affected record
+    operator_ip = Column(String(50), default="")
+    summary = Column(String(500), default="")          # human-readable description
+
+
+# ═══════════════════════════════════════════════════════
+# Certification domain — 认证合规跟踪
+# ═══════════════════════════════════════════════════════
+
+_CERT_TYPES = ("CCC", "计量器具型式批准", "CE", "ISO", "防爆认证", "其他")
+
+
+class Certification(Base):
+    __tablename__ = "certifications"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="SET NULL"), nullable=True)
+    product_name = Column(String(300), default="")
+    brand = Column(String(100), default="")
+    model = Column(String(200), default="")
+    cert_type = Column(String(50), nullable=False)          # CCC / 计量批准 / CE / ISO / 防爆认证 / 其他
+    cert_number = Column(String(200), default="")
+    issued_date = Column(Date, nullable=True)
+    expiry_date = Column(Date, nullable=True)
+    issuing_body = Column(String(200), default="")          # 发证机构
+    status = Column(String(20), default="valid")            # valid / expiring_soon / expired
+    notes = Column(Text, default="")
+    attachment_url = Column(String(500), default="")
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+    product = relationship("Product")
+
+
+# ═══════════════════════════════════════════════════════
+# Exhibition domain — 展会管理
+# ═══════════════════════════════════════════════════════
+
+class Exhibition(Base):
+    __tablename__ = "exhibitions"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(300), nullable=False)
+    date_start = Column(Date, nullable=True)
+    date_end = Column(Date, nullable=True)
+    location = Column(String(200), default="")
+    city = Column(String(100), default="")
+    booth_number = Column(String(50), default="")
+    cost_cny = Column(Float, default=0)                     # 参展成本
+    notes = Column(Text, default="")
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+    leads = relationship("Lead", back_populates="exhibition", cascade="all, delete-orphan")
+
+
+# ═══════════════════════════════════════════════════════
+# Lead domain — 展会线索
+# ═══════════════════════════════════════════════════════
+
+_LEAD_SOURCES = ("exhibition", "referral", "website", "cold_call", "association", "other")
+_LEAD_STATUSES = ("new", "contacted", "qualified", "quoted", "won", "lost")
+
+
+class Lead(Base):
+    __tablename__ = "leads"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    exhibition_id = Column(Integer, ForeignKey("exhibitions.id", ondelete="SET NULL"), nullable=True)
+    company_name = Column(String(300), nullable=False)
+    contact_name = Column(String(100), default="")
+    contact_phone = Column(String(50), default="")
+    contact_email = Column(String(200), default="")
+    position = Column(String(100), default="")
+    source = Column(String(30), default="exhibition")
+    status = Column(String(30), default="new")
+    interest_level = Column(Integer, default=0)             # 1-5
+    requirements = Column(Text, default="")
+    estimated_value_cny = Column(Float, default=0)
+    notes = Column(Text, default="")
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+    exhibition = relationship("Exhibition", back_populates="leads")

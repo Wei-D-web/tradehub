@@ -57,12 +57,23 @@ def update_quotation(qid: int, body: QuotationUpdate, db: Session = Depends(get_
     q = db.query(Quotation).get(qid)
     if not q:
         raise HTTPException(404, "报价单不存在")
+
+    # Apply tax first so total calculation uses the correct value
+    if body.tax is not None:
+        q.tax = body.tax
+
+    if body.items is not None:
+        items = [it.model_dump() for it in body.items]
+        q.items = items
+        q.subtotal = sum(it.amount for it in body.items)
+        q.total = q.subtotal + q.tax
+
+    # Apply remaining fields (skip items/tax already handled)
     for k, v in body.model_dump(exclude_unset=True).items():
-        if k == "items":
-            v = [it.model_dump() for it in body.items] if body.items else q.items
-            q.subtotal = sum(item["amount"] for item in v)
-            q.total = q.subtotal + q.tax
+        if k in ("items", "tax"):
+            continue
         setattr(q, k, v)
+
     db.commit()
     db.refresh(q)
     return _enrich(q)

@@ -5,7 +5,7 @@ import type { Product, ProductForm } from '../types'
 import { Plus, Search, Edit3, Trash2, Package, RefreshCw, Loader2 } from 'lucide-react'
 
 const EMPTY_FORM: ProductForm = {
-  name: '', category: '', sku: '', unit: 'pcs', hs_code: '', description: '', specifications: '',
+  name: '', brand: '', origin_country: '', category: '', sku: '', unit: 'pcs', hs_code: '', description: '', specifications: '',
 }
 
 export default function ProductsPage() {
@@ -13,6 +13,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
+  const [brand, setBrand] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [showForm, setShowForm] = useState(false)
@@ -22,14 +23,14 @@ export default function ProductsPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const d = await api.products.list(search, category) as Product[]
+      const d = await api.products.list(search, category, brand) as Product[]
       setProducts(d)
     } catch {
       toast.error('加载产品列表失败')
     } finally {
       setLoading(false)
     }
-  }, [search, category, toast])
+  }, [search, category, brand, toast])
 
   useEffect(() => { load() }, [load])
 
@@ -42,7 +43,8 @@ export default function ProductsPage() {
   const openEdit = (p: Product) => {
     setEditing(p)
     setForm({
-      name: p.name, category: p.category, sku: p.sku,
+      name: p.name, brand: p.brand, origin_country: p.origin_country,
+      category: p.category, sku: p.sku,
       unit: p.unit, hs_code: p.hs_code,
       description: p.description, specifications: p.specifications,
     })
@@ -81,6 +83,7 @@ export default function ProductsPage() {
   }
 
   const categories = [...new Set(products.map(p => p.category).filter(Boolean))]
+  const brands = [...new Set(products.map(p => p.brand).filter(Boolean))]
 
   return (
     <div>
@@ -94,11 +97,15 @@ export default function ProductsPage() {
         </button>
       </div>
 
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-4 flex-wrap">
         <div className="relative flex-1 max-w-sm">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input className="input pl-9" placeholder="搜索产品名称/SKU/HS编码..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
+        <select className="select" value={brand} onChange={e => setBrand(e.target.value)}>
+          <option value="">全部品牌</option>
+          {brands.map(b => <option key={b} value={b}>{b}</option>)}
+        </select>
         <select className="select" value={category} onChange={e => setCategory(e.target.value)}>
           <option value="">全部分类</option>
           {categories.map(c => <option key={c} value={c}>{c}</option>)}
@@ -111,15 +118,15 @@ export default function ProductsPage() {
       <div className="card overflow-x-auto">
         <table className="table">
           <thead>
-            <tr><th>产品名称</th><th>分类</th><th>SKU</th><th>HS编码</th><th>单位</th><th>描述</th><th>操作</th></tr>
+            <tr><th>产品名称</th><th>品牌</th><th>分类</th><th>SKU</th><th>HS编码</th><th>单位</th><th>描述</th><th>操作</th></tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="text-center py-16 text-slate-400">
+              <tr><td colSpan={8} className="text-center py-16 text-slate-400">
                 <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />加载中...
               </td></tr>
             ) : products.length === 0 ? (
-              <tr><td colSpan={7} className="text-center py-16">
+              <tr><td colSpan={8} className="text-center py-16">
                 <Package className="w-12 h-12 text-slate-200 mx-auto mb-3" />
                 <p className="text-slate-400 mb-3">{search || category ? '没有匹配的产品' : '还没有添加产品'}</p>
                 {!search && !category && (
@@ -132,11 +139,12 @@ export default function ProductsPage() {
               products.map(p => (
                 <tr key={p.id}>
                   <td className="font-medium">{p.name}</td>
+                  <td>{p.brand ? <span className="badge" style={{background: '#eef2ff', color: '#6366f1'}}>{p.brand}</span> : '-'}</td>
                   <td>{p.category ? <span className="badge badge-sent">{p.category}</span> : '-'}</td>
                   <td className="text-sm font-mono">{p.sku || '-'}</td>
                   <td className="text-sm font-mono text-blue-600">{p.hs_code || '-'}</td>
                   <td>{p.unit || '-'}</td>
-                  <td className="text-sm text-slate-500 max-w-[200px] truncate">{p.description || p.specifications || '-'}</td>
+                  <td className="text-sm text-slate-500 max-w-[150px] truncate">{p.description || p.specifications || '-'}</td>
                   <td>
                     <div className="flex gap-1">
                       <button className="btn btn-ghost btn-sm" onClick={() => openEdit(p)}><Edit3 className="w-3 h-3" /></button>
@@ -159,6 +167,21 @@ export default function ProductsPage() {
                 <label className="text-xs text-slate-500 mb-1 block">产品名称 <span className="text-red-400">*</span></label>
                 <input className="input" placeholder="产品全称" value={form.name}
                   onChange={e => setForm({ ...form, name: e.target.value })} autoFocus />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-slate-500 mb-1 block">品牌</label>
+                  <input className="input" placeholder="如 FAR / CHEMISAFE" value={form.brand}
+                    onChange={e => setForm({ ...form, brand: e.target.value })} list="product-brands" />
+                  <datalist id="product-brands">
+                    {brands.map(b => <option key={b} value={b} />)}
+                  </datalist>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500 mb-1 block">原产国</label>
+                  <input className="input" placeholder="IT / DE / SE" value={form.origin_country}
+                    onChange={e => setForm({ ...form, origin_country: e.target.value })} />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>

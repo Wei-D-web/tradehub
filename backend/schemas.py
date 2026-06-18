@@ -3,11 +3,41 @@ TradeHub Pydantic schemas — request/response validation.
 """
 
 from datetime import date, datetime
-from typing import Optional
-from pydantic import BaseModel, Field
+from typing import Any, Optional
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # ── Generic ────────────────────────────────────────────
+
+class TradeHubSchema(BaseModel):
+    """Base schema: coerces None → '' for str fields when loading from nullable DB columns."""
+
+    @model_validator(mode='before')
+    @classmethod
+    def _coerce_none_str_to_empty(cls, data: Any) -> Any:
+        """Fix nullable DB columns: convert None → '' for all str-typed fields."""
+        if data is None or isinstance(data, dict):
+            return data
+        # from_attributes: data is the ORM object
+        # Collect str-field names declared on this schema
+        str_fields = {
+            name for name, info in cls.model_fields.items()
+            if info.annotation is str
+        }
+        if not str_fields:
+            return data
+        # Build a safe dict copy, replacing None with ""
+        fixed: dict[str, Any] = {}
+        for name, info in cls.model_fields.items():
+            try:
+                val = getattr(data, name)
+            except AttributeError:
+                continue  # computed/default-only fields (not on ORM)
+            if name in str_fields and val is None:
+                val = ""
+            fixed[name] = val
+        return fixed
+
 
 class MsgResponse(BaseModel):
     ok: bool = True
@@ -30,7 +60,7 @@ class CustomerContactCreate(BaseModel):
     is_primary: bool = False
 
 
-class CustomerContactOut(CustomerContactCreate):
+class CustomerContactOut(CustomerContactCreate, TradeHubSchema):
     id: int
     customer_id: int
     created_at: datetime
@@ -47,6 +77,7 @@ class CustomerCreate(BaseModel):
     company_address: str = ""
     industry_tags: str = ""
     source: str = ""
+    exhibition_id: Optional[int] = None
     notes: str = ""
 
 
@@ -58,11 +89,12 @@ class CustomerUpdate(BaseModel):
     company_address: Optional[str] = None
     industry_tags: Optional[str] = None
     source: Optional[str] = None
+    exhibition_id: Optional[int] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
 
 
-class CustomerOut(BaseModel):
+class CustomerOut(TradeHubSchema):
     id: int
     name: str
     contact_person: str
@@ -71,6 +103,8 @@ class CustomerOut(BaseModel):
     company_address: str
     industry_tags: str
     source: str
+    exhibition_id: Optional[int] = None
+    exhibition_name: str = ""
     notes: str
     is_active: bool
     created_at: datetime
@@ -92,6 +126,9 @@ class SupplierCreate(BaseModel):
     email: str = ""
     website: str = ""
     product_categories: str = ""
+    brands: str = ""
+    agency_start: Optional[date] = None
+    agency_end: Optional[date] = None
     payment_terms: str = ""
     rating: int = 0
     notes: str = ""
@@ -105,6 +142,9 @@ class SupplierUpdate(BaseModel):
     email: Optional[str] = None
     website: Optional[str] = None
     product_categories: Optional[str] = None
+    brands: Optional[str] = None
+    agency_start: Optional[date] = None
+    agency_end: Optional[date] = None
     payment_terms: Optional[str] = None
     rating: Optional[int] = None
     notes: Optional[str] = None
@@ -121,7 +161,7 @@ class SupplierQuoteCreate(BaseModel):
     valid_until: Optional[date] = None
 
 
-class SupplierQuoteOut(SupplierQuoteCreate):
+class SupplierQuoteOut(SupplierQuoteCreate, TradeHubSchema):
     id: int
     supplier_id: int
     quoted_at: datetime
@@ -132,7 +172,7 @@ class SupplierQuoteOut(SupplierQuoteCreate):
         from_attributes = True
 
 
-class SupplierOut(BaseModel):
+class SupplierOut(TradeHubSchema):
     id: int
     name: str
     country: str
@@ -141,6 +181,9 @@ class SupplierOut(BaseModel):
     email: str
     website: str
     product_categories: str
+    brands: str
+    agency_start: Optional[date] = None
+    agency_end: Optional[date] = None
     payment_terms: str
     rating: int
     notes: str
@@ -156,6 +199,8 @@ class SupplierOut(BaseModel):
 
 class ProductCreate(BaseModel):
     name: str
+    brand: str = ""
+    origin_country: str = ""
     category: str = ""
     sku: str = ""
     unit: str = "pcs"
@@ -166,6 +211,8 @@ class ProductCreate(BaseModel):
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
+    brand: Optional[str] = None
+    origin_country: Optional[str] = None
     category: Optional[str] = None
     sku: Optional[str] = None
     unit: Optional[str] = None
@@ -174,9 +221,11 @@ class ProductUpdate(BaseModel):
     specifications: Optional[str] = None
 
 
-class ProductOut(BaseModel):
+class ProductOut(TradeHubSchema):
     id: int
     name: str
+    brand: str
+    origin_country: str
     category: str
     sku: str
     unit: str
@@ -224,7 +273,7 @@ class FreightQuoteCreate(BaseModel):
     valid_until: Optional[date] = None
 
 
-class FreightQuoteOut(FreightQuoteCreate):
+class FreightQuoteOut(FreightQuoteCreate, TradeHubSchema):
     id: int
     forwarder_id: int
     quoted_at: datetime
@@ -234,7 +283,7 @@ class FreightQuoteOut(FreightQuoteCreate):
         from_attributes = True
 
 
-class ForwarderOut(BaseModel):
+class ForwarderOut(TradeHubSchema):
     id: int
     name: str
     contact_person: str
@@ -281,7 +330,7 @@ class QuotationUpdate(BaseModel):
     notes: Optional[str] = None
 
 
-class QuotationOut(BaseModel):
+class QuotationOut(TradeHubSchema):
     id: int
     customer_id: Optional[int]
     customer_name: str = ""
@@ -329,7 +378,7 @@ class OrderUpdate(BaseModel):
     notes: Optional[str] = None
 
 
-class OrderTimelineOut(BaseModel):
+class OrderTimelineOut(TradeHubSchema):
     id: int
     event_type: str
     description: str
@@ -340,7 +389,7 @@ class OrderTimelineOut(BaseModel):
         from_attributes = True
 
 
-class OrderOut(BaseModel):
+class OrderOut(TradeHubSchema):
     id: int
     order_no: str
     customer_id: Optional[int]
@@ -382,7 +431,7 @@ class ContractUpdate(BaseModel):
     content_json: Optional[dict] = None
 
 
-class ContractOut(BaseModel):
+class ContractOut(TradeHubSchema):
     id: int
     order_id: Optional[int]
     contract_no: str
@@ -425,7 +474,7 @@ class ShipmentUpdate(BaseModel):
     notes: Optional[str] = None
 
 
-class ShipmentOut(BaseModel):
+class ShipmentOut(TradeHubSchema):
     id: int
     order_id: int
     order_no: str = ""
@@ -472,7 +521,7 @@ class TicketCommentCreate(BaseModel):
     author: str = ""
 
 
-class TicketCommentOut(TicketCommentCreate):
+class TicketCommentOut(TicketCommentCreate, TradeHubSchema):
     id: int
     ticket_id: int
     created_at: datetime
@@ -481,7 +530,7 @@ class TicketCommentOut(TicketCommentCreate):
         from_attributes = True
 
 
-class TicketOut(BaseModel):
+class TicketOut(TradeHubSchema):
     id: int
     order_id: Optional[int]
     order_no: str = ""
@@ -521,7 +570,7 @@ class RMAUpdate(BaseModel):
     refund_amount: Optional[float] = None
 
 
-class RMAOut(BaseModel):
+class RMAOut(TradeHubSchema):
     id: int
     order_id: Optional[int]
     order_no: str = ""
@@ -564,7 +613,17 @@ class ScheduleCreate(BaseModel):
     notes: str = ""
 
 
-class ScheduleOut(ScheduleCreate):
+class ScheduleUpdate(BaseModel):
+    technician_id: Optional[int] = None
+    ticket_id: Optional[int] = None
+    scheduled_date: Optional[date] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class ScheduleOut(ScheduleCreate, TradeHubSchema):
     id: int
     status: str
 
@@ -572,7 +631,7 @@ class ScheduleOut(ScheduleCreate):
         from_attributes = True
 
 
-class TechnicianOut(BaseModel):
+class TechnicianOut(TradeHubSchema):
     id: int
     name: str
     phone: str
@@ -602,7 +661,7 @@ class KnowledgeUpdate(BaseModel):
     tags: Optional[str] = None
 
 
-class KnowledgeOut(BaseModel):
+class KnowledgeOut(TradeHubSchema):
     id: int
     title: str
     content: str
@@ -642,7 +701,7 @@ class PaymentCreate(BaseModel):
     reference_no: str = ""
 
 
-class InvoiceOut(BaseModel):
+class InvoiceOut(TradeHubSchema):
     id: int
     order_id: Optional[int]
     order_no: str = ""
@@ -660,7 +719,7 @@ class InvoiceOut(BaseModel):
         from_attributes = True
 
 
-class PaymentOut(BaseModel):
+class PaymentOut(TradeHubSchema):
     id: int
     invoice_id: Optional[int]
     order_id: Optional[int]
@@ -680,3 +739,152 @@ class ProfitSummary(BaseModel):
     total_profit: float = 0
     order_count: int = 0
     period: str = ""  # e.g. "2026-06" or "2026-Q2" or "all"
+
+
+# ── Certification ──────────────────────────────────────
+
+class CertificationCreate(BaseModel):
+    product_id: Optional[int] = None
+    product_name: str = ""
+    brand: str = ""
+    model: str = ""
+    cert_type: str = "CCC"
+    cert_number: str = ""
+    issued_date: Optional[date] = None
+    expiry_date: Optional[date] = None
+    issuing_body: str = ""
+    notes: str = ""
+    attachment_url: str = ""
+
+
+class CertificationUpdate(BaseModel):
+    product_id: Optional[int] = None
+    product_name: Optional[str] = None
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    cert_type: Optional[str] = None
+    cert_number: Optional[str] = None
+    issued_date: Optional[date] = None
+    expiry_date: Optional[date] = None
+    issuing_body: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    attachment_url: Optional[str] = None
+
+
+class CertificationOut(TradeHubSchema):
+    id: int
+    product_id: Optional[int]
+    product_name: str
+    brand: str
+    model: str
+    cert_type: str
+    cert_number: str
+    issued_date: Optional[date]
+    expiry_date: Optional[date]
+    issuing_body: str
+    status: str
+    notes: str
+    attachment_url: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── Exhibition ─────────────────────────────────────────
+
+class ExhibitionCreate(BaseModel):
+    name: str
+    date_start: Optional[date] = None
+    date_end: Optional[date] = None
+    location: str = ""
+    city: str = ""
+    booth_number: str = ""
+    cost_cny: float = 0
+    notes: str = ""
+
+
+class ExhibitionUpdate(BaseModel):
+    name: Optional[str] = None
+    date_start: Optional[date] = None
+    date_end: Optional[date] = None
+    location: Optional[str] = None
+    city: Optional[str] = None
+    booth_number: Optional[str] = None
+    cost_cny: Optional[float] = None
+    notes: Optional[str] = None
+
+
+class ExhibitionOut(TradeHubSchema):
+    id: int
+    name: str
+    date_start: Optional[date]
+    date_end: Optional[date]
+    location: str
+    city: str
+    booth_number: str
+    cost_cny: float
+    notes: str
+    lead_count: int = 0
+    won_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ── Lead ───────────────────────────────────────────────
+
+class LeadCreate(BaseModel):
+    exhibition_id: Optional[int] = None
+    company_name: str
+    contact_name: str = ""
+    contact_phone: str = ""
+    contact_email: str = ""
+    position: str = ""
+    source: str = "exhibition"
+    status: str = "new"
+    interest_level: int = 0
+    requirements: str = ""
+    estimated_value_cny: float = 0
+    notes: str = ""
+
+
+class LeadUpdate(BaseModel):
+    exhibition_id: Optional[int] = None
+    company_name: Optional[str] = None
+    contact_name: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    position: Optional[str] = None
+    source: Optional[str] = None
+    status: Optional[str] = None
+    interest_level: Optional[int] = None
+    requirements: Optional[str] = None
+    estimated_value_cny: Optional[float] = None
+    notes: Optional[str] = None
+
+
+class LeadOut(TradeHubSchema):
+    id: int
+    exhibition_id: Optional[int]
+    exhibition_name: str = ""
+    company_name: str
+    contact_name: str
+    contact_phone: str
+    contact_email: str
+    position: str
+    source: str
+    status: str
+    interest_level: int
+    requirements: str
+    estimated_value_cny: float
+    notes: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

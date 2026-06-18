@@ -14,6 +14,7 @@ router = APIRouter(prefix="/api/products", tags=["products"])
 def list_products(
     search: str = "",
     category: str = "",
+    brand: str = "",
     db: Session = Depends(get_db),
 ):
     q = db.query(Product)
@@ -21,10 +22,13 @@ def list_products(
         kw = f"%{search}%"
         q = q.filter(
             Product.name.ilike(kw) | Product.sku.ilike(kw) |
-            Product.hs_code.ilike(kw) | Product.description.ilike(kw)
+            Product.hs_code.ilike(kw) | Product.description.ilike(kw) |
+            Product.brand.ilike(kw)
         )
     if category:
         q = q.filter(Product.category == category)
+    if brand:
+        q = q.filter(Product.brand == brand)
     return q.order_by(Product.name).all()
 
 

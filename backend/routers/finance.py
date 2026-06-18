@@ -3,8 +3,8 @@
 from datetime import datetime, date
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 
 from database import get_db
@@ -14,8 +14,14 @@ from schemas import (
     PaymentCreate, PaymentOut,
     ProfitSummary, MsgResponse,
 )
+from audit import audit_log
 
 router = APIRouter(prefix="/api/finance", tags=["finance"])
+
+
+def _client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for", "")
+    return xff.split(",")[0].strip() if xff else (request.client.host if request.client else "unknown")
 
 
 # ── Invoices ────────────────────────────────────────
@@ -38,12 +44,12 @@ def list_invoices(order_id: int | None = None, status: str = "", db: Session = D
         q = q.filter(Invoice.order_id == order_id)
     if status:
         q = q.filter(Invoice.status == status)
-    return [_enrich_invoice(r) for r in q.all()]
+    return [_enrich_invoice(r) for r in q.options(joinedload(Invoice.order)).all()]
 
 
 @router.get("/invoices/{iid}", response_model=InvoiceOut)
 def get_invoice(iid: int, db: Session = Depends(get_db)):
-    r = db.query(Invoice).get(iid)
+    r = db.query(Invoice).options(joinedload(Invoice.order)).get(iid)
     if not r:
         raise HTTPException(404, "发票不存在")
     return _enrich_invoice(r)
@@ -80,12 +86,16 @@ def update_invoice(iid: int, body: InvoiceUpdate, db: Session = Depends(get_db))
 
 
 @router.delete("/invoices/{iid}", response_model=MsgResponse)
-def delete_invoice(iid: int, db: Session = Depends(get_db)):
+def delete_invoice(iid: int, db: Session = Depends(get_db), request: Request = None):
     inv = db.query(Invoice).get(iid)
     if not inv:
         raise HTTPException(404, "发票不存在")
+    invoice_no = inv.invoice_no
+    amount = inv.amount
     db.delete(inv)
     db.commit()
+    if request:
+        audit_log(db, "delete", "invoice", iid, _client_ip(request), f"删除发票: {invoice_no} (¥{amount:,.2f})")
     return {"ok": True, "message": "已删除"}
 
 

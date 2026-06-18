@@ -1,14 +1,20 @@
 """Customer CRUD router."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from database import get_db
 from models import Customer, CustomerContact, Order
 from schemas import CustomerCreate, CustomerUpdate, CustomerOut, CustomerContactCreate, CustomerContactOut, MsgResponse
+from audit import audit_log
 
 router = APIRouter(prefix="/api/customers", tags=["customers"])
+
+
+def _client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for", "")
+    return xff.split(",")[0].strip() if xff else (request.client.host if request.client else "unknown")
 
 
 @router.get("", response_model=list[CustomerOut])
@@ -29,10 +35,19 @@ def list_customers(
     if is_active is not None:
         q = q.filter(Customer.is_active == is_active)
     rows = q.order_by(Customer.updated_at.desc()).all()
+
+    # Batch-load order counts in 1 query
+    order_counts = {}
+    if rows:
+        counts = db.query(Order.customer_id, func.count(Order.id)).filter(
+            Order.customer_id.in_([r.id for r in rows])
+        ).group_by(Order.customer_id).all()
+        order_counts = dict(counts)
+
     result = []
     for r in rows:
         d = CustomerOut.model_validate(r)
-        d.order_count = db.query(func.count(Order.id)).filter(Order.customer_id == r.id).scalar() or 0
+        d.order_count = order_counts.get(r.id, 0)
         result.append(d)
     return result
 
@@ -48,11 +63,13 @@ def get_customer(cid: int, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=CustomerOut)
-def create_customer(body: CustomerCreate, db: Session = Depends(get_db)):
+def create_customer(body: CustomerCreate, db: Session = Depends(get_db), request: Request = None):
     c = Customer(**body.model_dump())
     db.add(c)
     db.commit()
     db.refresh(c)
+    if request:
+        audit_log(db, "create", "customer", c.id, _client_ip(request), f"新建客户: {c.name}")
     return c
 
 
@@ -69,12 +86,15 @@ def update_customer(cid: int, body: CustomerUpdate, db: Session = Depends(get_db
 
 
 @router.delete("/{cid}", response_model=MsgResponse)
-def delete_customer(cid: int, db: Session = Depends(get_db)):
+def delete_customer(cid: int, db: Session = Depends(get_db), request: Request = None):
     c = db.query(Customer).get(cid)
     if not c:
         raise HTTPException(404, "客户不存在")
+    name = c.name
     db.delete(c)
     db.commit()
+    if request:
+        audit_log(db, "delete", "customer", cid, _client_ip(request), f"删除客户: {name}")
     return {"ok": True, "message": "已删除"}
 
 

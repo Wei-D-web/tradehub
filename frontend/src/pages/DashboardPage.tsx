@@ -1,16 +1,21 @@
 import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
-import { TrendingUp, TrendingDown, ShoppingCart, Users, Wrench, AlertTriangle } from 'lucide-react'
+import { TrendingUp, TrendingDown, ShoppingCart, Users, Wrench, AlertTriangle, Shield, Presentation } from 'lucide-react'
+import type { CertAlerts } from '../types'
 
 export default function DashboardPage() {
   const [kpi, setKpi] = useState<Record<string, number>>({})
   const [trend, setTrend] = useState<Array<Record<string, unknown>>>([])
   const [recent, setRecent] = useState<Array<Record<string, unknown>>>([])
+  const [certAlerts, setCertAlerts] = useState<CertAlerts | null>(null)
+  const [expoSummary, setExpoSummary] = useState<Record<string, unknown> | null>(null)
 
   useEffect(() => {
     api.dashboard.kpi().then(setKpi).catch(() => {})
     api.dashboard.trend(6).then(d => setTrend(d as Array<Record<string, unknown>>)).catch(() => {})
     api.dashboard.recent(8).then(setRecent).catch(() => {})
+    api.dashboard.certAlerts(90).then(d => setCertAlerts(d as CertAlerts)).catch(() => {})
+    api.dashboard.exhibitionSummary().then(d => setExpoSummary(d as Record<string, unknown>)).catch(() => {})
   }, [])
 
   const formatMoney = (v: number) => {
@@ -90,6 +95,82 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Certification Alerts */}
+      {certAlerts && (certAlerts.total > 0) && (
+        <div className="mt-6">
+          <h3 className="font-semibold mb-3 text-sm text-slate-600 flex items-center gap-2">
+            <Shield className="w-4 h-4 text-indigo-500" />认证证书预警
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            <div className="card p-3" style={{background: '#fef2f2'}}>
+              <div className="text-xs text-red-500 mb-1">已过期</div>
+              <div className="text-xl font-bold text-red-600">{certAlerts.expired}</div>
+            </div>
+            <div className="card p-3" style={{background: '#fff7ed'}}>
+              <div className="text-xs text-orange-500 mb-1">30天内到期</div>
+              <div className="text-xl font-bold text-orange-600">{certAlerts.expiring_30}</div>
+            </div>
+            <div className="card p-3" style={{background: '#fffbeb'}}>
+              <div className="text-xs text-amber-500 mb-1">60天内到期</div>
+              <div className="text-xl font-bold text-amber-600">{certAlerts.expiring_60}</div>
+            </div>
+            <div className="card p-3" style={{background: '#fefce8'}}>
+              <div className="text-xs text-yellow-500 mb-1">90天内到期</div>
+              <div className="text-xl font-bold text-yellow-600">{certAlerts.expiring_90}</div>
+            </div>
+          </div>
+          {certAlerts.recent_items.length > 0 && (
+            <div className="card p-3">
+              <div className="text-xs text-slate-400 mb-2">即将到期/已过期证书</div>
+              <div className="space-y-1">
+                {certAlerts.recent_items.slice(0, 5).map(item => (
+                  <div key={item.id} className="flex items-center gap-2 text-xs py-1 border-b border-slate-50 last:border-0">
+                    <span className={item.status === 'expired' ? 'text-red-500' : 'text-amber-500'}>
+                      {item.status === 'expired' ? '●' : '○'}
+                    </span>
+                    <span className="text-slate-700 flex-1">{item.product_name} ({item.cert_type})</span>
+                    <span className={item.days_left < 0 ? 'text-red-500' : 'text-amber-500'}>
+                      {item.days_left < 0 ? `过期${Math.abs(item.days_left)}天` : `剩余${item.days_left}天`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Exhibition Summary */}
+      {expoSummary && ((expoSummary.total_exhibitions as number) > 0) && (
+        <div className="mt-6">
+          <h3 className="font-semibold mb-3 text-sm text-slate-600 flex items-center gap-2">
+            <Presentation className="w-4 h-4 text-blue-500" />展会概览
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="card p-3 text-center">
+              <div className="text-xs text-slate-400">参展场次</div>
+              <div className="text-lg font-bold text-indigo-600">{expoSummary.total_exhibitions as number}</div>
+            </div>
+            <div className="card p-3 text-center">
+              <div className="text-xs text-slate-400">展会线索</div>
+              <div className="text-lg font-bold text-blue-600">{expoSummary.exhibition_leads as number}</div>
+            </div>
+            <div className="card p-3 text-center">
+              <div className="text-xs text-slate-400">赢单数</div>
+              <div className="text-lg font-bold text-green-600">{expoSummary.won_leads as number}</div>
+            </div>
+            <div className="card p-3 text-center">
+              <div className="text-xs text-slate-400">转化率</div>
+              <div className="text-lg font-bold text-amber-600">{expoSummary.conversion_rate as string}</div>
+            </div>
+            <div className="card p-3 text-center">
+              <div className="text-xs text-slate-400">线索成本</div>
+              <div className="text-lg font-bold text-slate-600">¥{expoSummary.cost_per_lead_cny as number}</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
