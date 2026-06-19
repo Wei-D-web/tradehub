@@ -320,7 +320,7 @@ app.include_router(dashboard.router)
 app.include_router(certifications.router)
 app.include_router(exhibitions.router)
 app.include_router(leads.router)
-app.include_router(pricing.router)
+app.include_router(pricing.router)   # Pricing Intelligence — auto-learns customer price tolerance
 
 
 # ── Auth endpoints ──
