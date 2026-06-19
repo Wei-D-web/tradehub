@@ -1,8 +1,7 @@
 """Customer CRUD router."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import func
 
 from database import get_db
@@ -18,62 +17,59 @@ def _client_ip(request: Request) -> str:
     return xff.split(",")[0].strip() if xff else (request.client.host if request.client else "unknown")
 
 
-@router.get("")
+@router.get("", response_model=list[CustomerOut])
 def list_customers(
     search: str = "",
     is_active: bool | None = None,
     db: Session = Depends(get_db),
 ):
-    import json
-    try:
-        q = db.query(Customer)
-        if search:
-            kw = f"%{search}%"
-            q = q.filter(
-                (Customer.name.ilike(kw)) |
-                (Customer.contact_person.ilike(kw)) |
-                (Customer.phone.ilike(kw)) |
-                (Customer.email.ilike(kw))
-            )
-        if is_active is not None:
-            q = q.filter(Customer.is_active == is_active)
-        rows = q.order_by(Customer.updated_at.desc()).all()
-        if not rows:
-            return JSONResponse(content=[])
-        # Manually build dicts, handling NULL
-        result = []
-        for r in rows:
-            item = {}
-            for col in r.__table__.columns:
-                v = getattr(r, col.name)
-                item[col.name] = "" if (v is None and isinstance(col.type, __import__('sqlalchemy').String)) else v
-            item['exhibition_name'] = ""
-            item['order_count'] = db.query(func.count(Order.id)).filter(Order.customer_id == r.id).scalar() or 0
-            item['contacts'] = []
-            for ct in (r.contacts or []):
-                citem = {}
-                for col in ct.__table__.columns:
-                    cv = getattr(ct, col.name)
-                    citem[col.name] = "" if (cv is None and hasattr(col.type, 'length')) else cv
-                item['contacts'].append(citem)
-            item['created_at'] = item['created_at'].isoformat() if item.get('created_at') else None
-            item['updated_at'] = item['updated_at'].isoformat() if item.get('updated_at') else None
-            for ct in item['contacts']:
-                ct['created_at'] = ct['created_at'].isoformat() if ct.get('created_at') else None
-            result.append(item)
-        return JSONResponse(content=result)
-    except Exception as e:
-        import traceback
-        return JSONResponse(status_code=500, content={"error": f"{type(e).__name__}: {e}\n{traceback.format_exc()}"})
+    q = db.query(Customer)
+    if search:
+        kw = f"%{search}%"
+        q = q.filter(
+            (Customer.name.ilike(kw)) |
+            (Customer.contact_person.ilike(kw)) |
+            (Customer.phone.ilike(kw)) |
+            (Customer.email.ilike(kw))
+        )
+    if is_active is not None:
+        q = q.filter(Customer.is_active == is_active)
+
+    # Eager-load exhibition to avoid N+1 when computing exhibition_name
+    rows = q.options(selectinload(Customer.exhibition)).order_by(Customer.updated_at.desc()).all()
+
+    # Batch-load order counts in 1 query
+    order_counts: dict[int, int] = {}
+    if rows:
+        counts = db.query(Order.customer_id, func.count(Order.id)).filter(
+            Order.customer_id.in_([r.id for r in rows])
+        ).group_by(Order.customer_id).all()
+        order_counts = dict(counts)
+
+    result: list[CustomerOut] = []
+    for r in rows:
+        # Block lazy-load of contacts — not needed in list view
+        if "contacts" not in r.__dict__:
+            r.__dict__["contacts"] = []
+        d = CustomerOut.model_validate(r)
+        d.order_count = order_counts.get(r.id, 0)
+        d.exhibition_name = r.exhibition.name if r.exhibition else ""
+        d.contacts = []
+        result.append(d)
+    return result
 
 
 @router.get("/{cid}", response_model=CustomerOut)
 def get_customer(cid: int, db: Session = Depends(get_db)):
-    r = db.query(Customer).get(cid)
+    r = db.query(Customer).options(
+        selectinload(Customer.exhibition),
+        selectinload(Customer.contacts),
+    ).get(cid)
     if not r:
         raise HTTPException(404, "客户不存在")
     d = CustomerOut.model_validate(r)
     d.order_count = db.query(func.count(Order.id)).filter(Order.customer_id == r.id).scalar() or 0
+    d.exhibition_name = r.exhibition.name if r.exhibition else ""
     return d
 
 

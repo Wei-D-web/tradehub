@@ -41,8 +41,8 @@ export default function SuppliersPage() {
     try {
       const d = await api.suppliers.list(search) as Supplier[]
       setSuppliers(d)
-    } catch {
-      toast.error('加载供应商列表失败')
+    } catch (e) {
+      toast.error((e as Error).message || '加载供应商列表失败')
     } finally {
       setLoading(false)
     }
@@ -120,8 +120,8 @@ export default function SuppliersPage() {
       setDetail(full)
       setQuotes(q)
       setOrders(od)
-    } catch {
-      toast.error('加载供应商详情失败')
+    } catch (e) {
+      toast.error((e as Error).message || '加载供应商详情失败')
     } finally {
       setDetailLoading(false)
     }

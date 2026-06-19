@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
@@ -21,21 +22,49 @@ def _enrich(t: AfterSalesTicket) -> TicketOut:
     return d
 
 
-@router.get("", response_model=list[TicketOut])
+@router.get("")
 def list_tickets(
     status: str = "",
     priority: str = "",
     assigned_to: int | None = None,
     db: Session = Depends(get_db),
 ):
-    q = db.query(AfterSalesTicket).order_by(AfterSalesTicket.updated_at.desc())
-    if status:
-        q = q.filter(AfterSalesTicket.status == status)
-    if priority:
-        q = q.filter(AfterSalesTicket.priority == priority)
-    if assigned_to is not None:
-        q = q.filter(AfterSalesTicket.assigned_to == assigned_to)
-    return [_enrich(r) for r in q.options(joinedload(AfterSalesTicket.order), joinedload(AfterSalesTicket.customer), joinedload(AfterSalesTicket.technician)).all()]
+    try:
+        q = db.query(AfterSalesTicket).order_by(AfterSalesTicket.updated_at.desc())
+        if status:
+            q = q.filter(AfterSalesTicket.status == status)
+        if priority:
+            q = q.filter(AfterSalesTicket.priority == priority)
+        if assigned_to is not None:
+            q = q.filter(AfterSalesTicket.assigned_to == assigned_to)
+        rows = q.options(joinedload(AfterSalesTicket.order), joinedload(AfterSalesTicket.customer), joinedload(AfterSalesTicket.technician)).all()
+        if not rows:
+            return JSONResponse(content=[])
+        result = []
+        for r in rows:
+            item = {}
+            for col in r.__table__.columns:
+                v = getattr(r, col.name)
+                item[col.name] = "" if (v is None and hasattr(col.type, 'length')) else v
+            item['order_no'] = r.order.order_no if r.order else ""
+            item['customer_name'] = r.customer.name if r.customer else ""
+            item['technician_name'] = r.technician.name if r.technician else ""
+            item['resolved_at'] = item['resolved_at'].isoformat() if item.get('resolved_at') else None
+            item['created_at'] = item['created_at'].isoformat() if item.get('created_at') else None
+            item['updated_at'] = item['updated_at'].isoformat() if item.get('updated_at') else None
+            item['comments'] = []
+            for ct in (r.comments or []):
+                citem = {}
+                for col in ct.__table__.columns:
+                    cv = getattr(ct, col.name)
+                    citem[col.name] = "" if (cv is None and hasattr(col.type, 'length')) else cv
+                citem['created_at'] = citem['created_at'].isoformat() if citem.get('created_at') else None
+                item['comments'].append(citem)
+            result.append(item)
+        return JSONResponse(content=result)
+    except Exception as e:
+        import traceback
+        return JSONResponse(status_code=500, content={"error": f"{type(e).__name__}: {e}\n{traceback.format_exc()}"})
 
 
 @router.get("/{tid}", response_model=TicketOut)

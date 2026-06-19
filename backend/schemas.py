@@ -175,6 +175,7 @@ class SupplierOut(BaseModel):
     notes: str
     is_active: bool
     created_at: datetime
+    updated_at: datetime
     quotes: list[SupplierQuoteOut] = []
 
     class Config:
@@ -186,6 +187,14 @@ class SupplierOut(BaseModel):
     @classmethod
     def _none_to_empty(cls, v: object) -> str:
         return v if v is not None else ""
+
+    @field_validator('updated_at', mode='before')
+    @classmethod
+    def _none_to_created_at(cls, v: object, info) -> datetime:
+        """Coerce NULL updated_at to created_at (for rows before migration)."""
+        if v is None:
+            return info.data.get('created_at', datetime(2026, 1, 1))
+        return v
 
 
 # ── Product ────────────────────────────────────────────

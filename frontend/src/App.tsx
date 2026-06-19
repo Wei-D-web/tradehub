@@ -7,6 +7,7 @@ import {
   ShieldCheck, Presentation, UserPlus,
 } from 'lucide-react'
 import { ToastProvider } from './components/Toast'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import LoginScreen from './components/LoginScreen'
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
@@ -97,25 +98,26 @@ export default function App() {
 
   const renderPage = () => {
     const fallback = <Spinner />
+    const wrap = (el: React.ReactNode) => <ErrorBoundary>{el}</ErrorBoundary>
     switch (active) {
-      case 'dashboard': return <Suspense fallback={fallback}><DashboardPage /></Suspense>
-      case 'customers': return <Suspense fallback={fallback}><CustomersPage /></Suspense>
-      case 'suppliers': return <Suspense fallback={fallback}><SuppliersPage /></Suspense>
-      case 'forwarders': return <Suspense fallback={fallback}><ForwardersPage /></Suspense>
-      case 'products': return <Suspense fallback={fallback}><ProductsPage /></Suspense>
-      case 'quotations': return <Suspense fallback={fallback}><QuotationsPage /></Suspense>
-      case 'orders': return <Suspense fallback={fallback}><OrdersPage /></Suspense>
-      case 'contracts': return <Suspense fallback={fallback}><ContractsPage /></Suspense>
-      case 'logistics': return <Suspense fallback={fallback}><LogisticsPage /></Suspense>
-      case 'tickets': return <Suspense fallback={fallback}><TicketsPage /></Suspense>
-      case 'rma': return <Suspense fallback={fallback}><RMAPage /></Suspense>
-      case 'technicians': return <Suspense fallback={fallback}><TechniciansPage /></Suspense>
-      case 'knowledge': return <Suspense fallback={fallback}><KnowledgePage /></Suspense>
-      case 'certifications': return <Suspense fallback={fallback}><CertificationsPage /></Suspense>
-      case 'exhibitions': return <Suspense fallback={fallback}><ExhibitionsPage /></Suspense>
-      case 'leads': return <Suspense fallback={fallback}><LeadsPage /></Suspense>
-      case 'finance': return <Suspense fallback={fallback}><FinancePage /></Suspense>
-      case 'boss': return <Suspense fallback={fallback}><BossPage /></Suspense>
+      case 'dashboard': return <Suspense fallback={fallback}>{wrap(<DashboardPage />)}</Suspense>
+      case 'customers': return <Suspense fallback={fallback}>{wrap(<CustomersPage />)}</Suspense>
+      case 'suppliers': return <Suspense fallback={fallback}>{wrap(<SuppliersPage />)}</Suspense>
+      case 'forwarders': return <Suspense fallback={fallback}>{wrap(<ForwardersPage />)}</Suspense>
+      case 'products': return <Suspense fallback={fallback}>{wrap(<ProductsPage />)}</Suspense>
+      case 'quotations': return <Suspense fallback={fallback}>{wrap(<QuotationsPage />)}</Suspense>
+      case 'orders': return <Suspense fallback={fallback}>{wrap(<OrdersPage />)}</Suspense>
+      case 'contracts': return <Suspense fallback={fallback}>{wrap(<ContractsPage />)}</Suspense>
+      case 'logistics': return <Suspense fallback={fallback}>{wrap(<LogisticsPage />)}</Suspense>
+      case 'tickets': return <Suspense fallback={fallback}>{wrap(<TicketsPage />)}</Suspense>
+      case 'rma': return <Suspense fallback={fallback}>{wrap(<RMAPage />)}</Suspense>
+      case 'technicians': return <Suspense fallback={fallback}>{wrap(<TechniciansPage />)}</Suspense>
+      case 'knowledge': return <Suspense fallback={fallback}>{wrap(<KnowledgePage />)}</Suspense>
+      case 'certifications': return <Suspense fallback={fallback}>{wrap(<CertificationsPage />)}</Suspense>
+      case 'exhibitions': return <Suspense fallback={fallback}>{wrap(<ExhibitionsPage />)}</Suspense>
+      case 'leads': return <Suspense fallback={fallback}>{wrap(<LeadsPage />)}</Suspense>
+      case 'finance': return <Suspense fallback={fallback}>{wrap(<FinancePage />)}</Suspense>
+      case 'boss': return <Suspense fallback={fallback}>{wrap(<BossPage />)}</Suspense>
       default: return <DashboardPage />
     }
   }

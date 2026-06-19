@@ -82,6 +82,7 @@ class Supplier(Base):
     notes = Column(Text, default="")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
 
     quotes = relationship("SupplierQuote", back_populates="supplier", cascade="all, delete-orphan")
     orders = relationship("Order", back_populates="supplier")

@@ -1,7 +1,8 @@
 """Supplier CRUD + quote history router."""
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session, joinedload
+from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session, selectinload
 
 from database import get_db
 from models import Supplier, SupplierQuote, Product
@@ -10,20 +11,48 @@ from schemas import SupplierCreate, SupplierUpdate, SupplierOut, SupplierQuoteCr
 router = APIRouter(prefix="/api/suppliers", tags=["suppliers"])
 
 
-@router.get("", response_model=list[SupplierOut])
+@router.get("")
 def list_suppliers(search: str = "", is_active: bool | None = None, db: Session = Depends(get_db)):
-    q = db.query(Supplier)
-    if search:
-        kw = f"%{search}%"
-        q = q.filter(Supplier.name.ilike(kw) | Supplier.contact_person.ilike(kw))
-    if is_active is not None:
-        q = q.filter(Supplier.is_active == is_active)
-    return q.options(joinedload(Supplier.quotes)).order_by(Supplier.created_at.desc()).all()
+    try:
+        q = db.query(Supplier)
+        if search:
+            kw = f"%{search}%"
+            q = q.filter(Supplier.name.ilike(kw) | Supplier.contact_person.ilike(kw))
+        if is_active is not None:
+            q = q.filter(Supplier.is_active == is_active)
+        rows = q.options(selectinload(Supplier.quotes)).order_by(Supplier.created_at.desc()).all()
+        if not rows:
+            return JSONResponse(content=[])
+        result = []
+        for r in rows:
+            item = {}
+            for col in r.__table__.columns:
+                v = getattr(r, col.name)
+                item[col.name] = "" if (v is None and hasattr(col.type, 'length')) else v
+            item['agency_start'] = item['agency_start'].isoformat() if item.get('agency_start') else None
+            item['agency_end'] = item['agency_end'].isoformat() if item.get('agency_end') else None
+            item['created_at'] = item['created_at'].isoformat() if item.get('created_at') else None
+            item['updated_at'] = item['updated_at'].isoformat() if item.get('updated_at') else None
+            item['quotes'] = []
+            for qq in (r.quotes or []):
+                qitem = {}
+                for col in qq.__table__.columns:
+                    qv = getattr(qq, col.name)
+                    qitem[col.name] = "" if (qv is None and hasattr(col.type, 'length')) else qv
+                qitem['product_name'] = qq.product.name if qq.product else ""
+                qitem['valid_until'] = qitem['valid_until'].isoformat() if qitem.get('valid_until') else None
+                qitem['quoted_at'] = qitem['quoted_at'].isoformat() if qitem.get('quoted_at') else None
+                item['quotes'].append(qitem)
+            result.append(item)
+        return JSONResponse(content=result)
+    except Exception as e:
+        import traceback
+        return JSONResponse(status_code=500, content={"error": f"{type(e).__name__}: {e}\n{traceback.format_exc()}"})
 
 
 @router.get("/{sid}", response_model=SupplierOut)
 def get_supplier(sid: int, db: Session = Depends(get_db)):
-    r = db.query(Supplier).options(joinedload(Supplier.quotes)).get(sid)
+    r = db.query(Supplier).options(selectinload(Supplier.quotes)).get(sid)
     if not r:
         raise HTTPException(404, "供应商不存在")
     return r

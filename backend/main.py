@@ -188,26 +188,82 @@ class AuthMiddleware:
 
 
 def _migrate_db():
-    """Add missing columns to existing SQLite tables (non-destructive)."""
+    """
+    Auto-discover ALL SQLAlchemy model tables and add missing columns
+    to the SQLite database. Non-destructive — never removes columns.
+    Uses model definitions as the source of truth, so it never goes stale.
+    """
     import sqlite3
+    from sqlalchemy import inspect as sa_inspect, types as sa_types
+
     db_path = Path(__file__).parent / "data" / "tradehub.db"
     if not db_path.exists():
         return
+
     conn = sqlite3.connect(str(db_path))
     cur = conn.cursor()
     try:
-        expected = {
-            "customers": {"exhibition_id": "INTEGER REFERENCES exhibitions(id) ON DELETE SET NULL"},
-            "suppliers": {"brands": "VARCHAR(500) DEFAULT ''", "agency_start": "DATE", "agency_end": "DATE"},
-            "products": {"brand": "VARCHAR(100) DEFAULT ''", "origin_country": "VARCHAR(50) DEFAULT ''"},
-        }
-        for table, columns in expected.items():
-            cur.execute(f"PRAGMA table_info({table})")
-            existing = {r[1] for r in cur.fetchall()}
-            for col_name, col_type in columns.items():
-                if col_name not in existing:
-                    cur.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}")
-                    print(f"  📦 迁移: 添加列 {table}.{col_name} {col_type}")
+        for table in Base.metadata.sorted_tables:
+            table_name = table.name
+            try:
+                cur.execute(f"PRAGMA table_info({table_name})")
+                db_columns = {r[1] for r in cur.fetchall()}
+            except Exception:
+                continue  # table doesn't exist yet → create_all() handles it next restart
+
+            for col in table.columns:
+                if col.name in db_columns:
+                    continue
+
+                # Map SQLAlchemy type → SQLite type string
+                if isinstance(col.type, sa_types.Integer):
+                    type_str = "INTEGER"
+                elif isinstance(col.type, sa_types.Float):
+                    type_str = "FLOAT"
+                elif isinstance(col.type, sa_types.Boolean):
+                    type_str = "BOOLEAN DEFAULT 0"
+                elif isinstance(col.type, sa_types.Date):
+                    type_str = "DATE"
+                elif isinstance(col.type, sa_types.DateTime):
+                    type_str = "TIMESTAMP"
+                elif isinstance(col.type, sa_types.Text):
+                    type_str = "TEXT DEFAULT ''"
+                else:
+                    length = getattr(col.type, "length", None)
+                    if length:
+                        type_str = f"VARCHAR({length}) DEFAULT ''"
+                    else:
+                        type_str = "VARCHAR(500) DEFAULT ''"
+
+                # Attach foreign key if present
+                fks: list = list(col.foreign_keys) if col.foreign_keys else []
+                if fks:
+                    fk = fks[0]
+                    fk_table = fk.column.table.name
+                    fk_col = fk.column.name
+                    type_str += f" REFERENCES {fk_table}({fk_col})"
+
+                try:
+                    cur.execute(f"ALTER TABLE {table_name} ADD COLUMN {col.name} {type_str}")
+                    print(f"  📦 迁移: 添加列 {table_name}.{col.name} {type_str}")
+                except sqlite3.OperationalError as e:
+                    print(f"  ⚠️  迁移跳过 {table_name}.{col.name}: {e}")
+
+        conn.commit()
+
+        # Backfill NULL updated_at → created_at for rows that predate the column migration
+        for table in Base.metadata.sorted_tables:
+            table_name = table.name
+            col_names = {c.name for c in table.columns}
+            if "updated_at" in col_names and "created_at" in col_names:
+                try:
+                    cur.execute(
+                        f"UPDATE {table_name} SET updated_at = created_at WHERE updated_at IS NULL"
+                    )
+                    if cur.rowcount > 0:
+                        print(f"  📦 回填: {table_name}.updated_at ← created_at ({cur.rowcount} 行)")
+                except Exception:
+                    pass
         conn.commit()
     finally:
         conn.close()
@@ -372,6 +428,53 @@ def generate_password_hash(password: str = ""):
         "hash": h,
         "salt": s,
         "env_vars": f"TRADEHUB_PASSWORD_HASH={h}\nTRADEHUB_PASSWORD_SALT={s}",
+    }
+
+
+@app.get("/api/admin/db-check")
+def db_check():
+    """
+    Debug endpoint: show database table-column matrix.
+    Reports: which columns are in the DB vs which are in the models,
+    plus row counts. Useful for diagnosing schema drift.
+    """
+    import sqlite3
+    from sqlalchemy import inspect as sa_inspect
+
+    db_path = Path(__file__).parent / "data" / "tradehub.db"
+    if not db_path.exists():
+        return {"ok": False, "detail": "数据库文件不存在", "path": str(db_path)}
+
+    conn = sqlite3.connect(str(db_path))
+    cur = conn.cursor()
+    tables_info: dict = {}
+    try:
+        for table in Base.metadata.sorted_tables:
+            tname = table.name
+            try:
+                cur.execute(f"PRAGMA table_info({tname})")
+                db_cols = {r[1]: r[2] for r in cur.fetchall()}
+            except Exception:
+                db_cols = {}
+            cur.execute(f"SELECT COUNT(*) FROM {tname}")
+            row_count = cur.fetchone()[0]
+            model_cols = {c.name: str(c.type) for c in table.columns}
+            missing_in_db = {k: v for k, v in model_cols.items() if k not in db_cols}
+            extra_in_db = {k: v for k, v in db_cols.items() if k not in model_cols}
+            tables_info[tname] = {
+                "rows": row_count,
+                "db_columns": len(db_cols),
+                "model_columns": len(model_cols),
+                "missing_in_db": missing_in_db,
+                "extra_in_db": extra_in_db,
+            }
+    finally:
+        conn.close()
+
+    return {
+        "ok": True,
+        "db_path": str(db_path),
+        "tables": tables_info,
     }
 
 

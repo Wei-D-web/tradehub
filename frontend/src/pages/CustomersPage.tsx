@@ -40,8 +40,8 @@ export default function CustomersPage() {
     try {
       const d = await api.customers.list(search) as Customer[]
       setCustomers(d)
-    } catch {
-      toast.error('加载客户列表失败')
+    } catch (e) {
+      toast.error((e as Error).message || '加载客户列表失败')
     } finally {
       setLoading(false)
     }
@@ -117,8 +117,8 @@ export default function CustomersPage() {
       setDetail(full)
       setContacts(ct)
       setOrders(od)
-    } catch {
-      toast.error('加载客户详情失败')
+    } catch (e) {
+      toast.error((e as Error).message || '加载客户详情失败')
     } finally {
       setDetailLoading(false)
     }
