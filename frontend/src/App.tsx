@@ -4,7 +4,7 @@ import {
   FileText, ShoppingCart, FileCheck, Ship,
   Wrench, RotateCcw, UserCog, BookOpen,
   Landmark, BarChart3, Menu, X, LogOut,
-  ShieldCheck, Presentation, UserPlus,
+  ShieldCheck, Presentation, UserPlus, TrendingUp,
 } from 'lucide-react'
 import { ToastProvider } from './components/Toast'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -28,6 +28,7 @@ const BossPage = lazy(() => import('./pages/BossPage'))
 const CertificationsPage = lazy(() => import('./pages/CertificationsPage'))
 const ExhibitionsPage = lazy(() => import('./pages/ExhibitionsPage'))
 const LeadsPage = lazy(() => import('./pages/LeadsPage'))
+const PricingPage = lazy(() => import('./pages/PricingPage'))
 
 function Spinner() {
   return (
@@ -61,6 +62,7 @@ const nav: NavItem[] = [
   { key: 'certifications', label: '证书', icon: ShieldCheck, color: '#6366f1' },
   { key: 'exhibitions', label: '展会', icon: Presentation, color: '#f59e0b' },
   { key: 'leads', label: '线索', icon: UserPlus, color: '#10b981' },
+  { key: 'pricing', label: '定价分析', icon: TrendingUp, color: '#8b5cf6' },
   { key: 'finance', label: '财务', icon: Landmark, color: '#64748b' },
   { key: 'boss', label: 'Boss看板', icon: BarChart3, color: '#0f172a' },
 ]
@@ -116,6 +118,7 @@ export default function App() {
       case 'certifications': return <Suspense fallback={fallback}>{wrap(<CertificationsPage />)}</Suspense>
       case 'exhibitions': return <Suspense fallback={fallback}>{wrap(<ExhibitionsPage />)}</Suspense>
       case 'leads': return <Suspense fallback={fallback}>{wrap(<LeadsPage />)}</Suspense>
+      case 'pricing': return <Suspense fallback={fallback}>{wrap(<PricingPage />)}</Suspense>
       case 'finance': return <Suspense fallback={fallback}>{wrap(<FinancePage />)}</Suspense>
       case 'boss': return <Suspense fallback={fallback}>{wrap(<BossPage />)}</Suspense>
       default: return <DashboardPage />

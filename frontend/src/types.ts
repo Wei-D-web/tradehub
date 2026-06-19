@@ -329,3 +329,48 @@ export interface BrandCount {
   brand: string
   count: number
 }
+
+// ── Pricing Intelligence ──
+
+export interface PricingInsight {
+  customer_id: number
+  customer_name: string
+  industry_tags: string
+  price_tolerance_score: number | null
+  price_tier: string   // "premium" | "standard" | "value" | "unknown"
+  price_ratio: number
+  sample_size: number
+  avg_margin: number
+  total_quotes: number
+  total_orders: number
+}
+
+export interface ProductComparison {
+  product_id: number
+  product_name: string
+  customer_price: number
+  market_avg_price: number
+  ratio: number
+  quantity: number
+  quotation_id: number
+  quotation_title: string
+  quotation_date: string | null
+}
+
+export interface CustomerPricingDetail extends PricingInsight {
+  product_comparisons: ProductComparison[]
+}
+
+export interface PricingTierSummary {
+  [customer_id: string]: {
+    tier: string
+    score: number | null
+  }
+}
+
+export const TIER_CONFIG: Record<string, { label: string; badgeClass: string; dotClass: string }> = {
+  premium:  { label: '高溢价', badgeClass: 'bg-green-100 text-green-700 border border-green-200', dotClass: 'bg-green-500' },
+  standard: { label: '中等',   badgeClass: 'bg-yellow-100 text-yellow-700 border border-yellow-200', dotClass: 'bg-yellow-500' },
+  value:    { label: '低溢价', badgeClass: 'bg-orange-100 text-orange-700 border border-orange-200', dotClass: 'bg-orange-500' },
+  unknown:  { label: '未分析', badgeClass: 'bg-slate-100 text-slate-400 border border-slate-200', dotClass: 'bg-slate-300' },
+}

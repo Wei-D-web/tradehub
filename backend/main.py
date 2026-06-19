@@ -34,7 +34,7 @@ from routers import (
     forwarders, quotations, orders,
     contracts, logistics, finance,
     tickets, rma, technicians, knowledge,
-    dashboard, certifications, exhibitions, leads,
+    dashboard, certifications, exhibitions, leads, pricing,
 )
 
 PRODUCTION = "--production" in sys.argv or os.getenv("TRADEHUB_PRODUCTION", "").lower() in ("1", "true", "yes")
@@ -320,6 +320,7 @@ app.include_router(dashboard.router)
 app.include_router(certifications.router)
 app.include_router(exhibitions.router)
 app.include_router(leads.router)
+app.include_router(pricing.router)
 
 
 # ── Auth endpoints ──

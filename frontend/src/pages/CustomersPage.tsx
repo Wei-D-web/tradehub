@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../lib/api'
 import { useToast } from '../components/Toast'
-import type { Customer, CustomerForm, CustomerContact, OrderSummary } from '../types'
-import { SOURCE_OPTIONS } from '../types'
+import type { Customer, CustomerForm, CustomerContact, OrderSummary, PricingTierSummary } from '../types'
+import { SOURCE_OPTIONS, TIER_CONFIG } from '../types'
 import {
   Plus, Search, Edit3, Trash2, Phone, Mail, Building, MapPin,
   X, UserPlus, Star, Eye, ChevronRight, RefreshCw, Users,
@@ -31,6 +31,9 @@ export default function CustomersPage() {
   const [orders, setOrders] = useState<OrderSummary[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
 
+  // Pricing tier badges
+  const [pricingTiers, setPricingTiers] = useState<PricingTierSummary>({})
+
   // Contacts form in detail panel
   const [showContactForm, setShowContactForm] = useState(false)
   const [contactForm, setContactForm] = useState({ name: '', title: '', phone: '', email: '', wechat: '', is_primary: false })
@@ -40,6 +43,11 @@ export default function CustomersPage() {
     try {
       const d = await api.customers.list(search) as Customer[]
       setCustomers(d)
+      // Fetch pricing tier summary (non-critical — silently ignore errors)
+      try {
+        const tiers = await api.pricing.summary() as PricingTierSummary
+        setPricingTiers(tiers)
+      } catch { /* tier badges are optional */ }
     } catch (e) {
       toast.error((e as Error).message || '加载客户列表失败')
     } finally {
@@ -222,7 +230,13 @@ export default function CustomersPage() {
               customers.map(c => (
                 <tr key={c.id}>
                   <td>
-                    <button className="font-medium text-left hover:text-blue-600 transition-colors" onClick={() => openDetail(c)}>
+                    <button className="font-medium text-left hover:text-blue-600 transition-colors flex items-center gap-2" onClick={() => openDetail(c)}>
+                      {pricingTiers[c.id] && (
+                        <span
+                          className={`w-2 h-2 rounded-full inline-block flex-shrink-0 ${TIER_CONFIG[pricingTiers[c.id].tier]?.dotClass || 'bg-slate-300'}`}
+                          title={TIER_CONFIG[pricingTiers[c.id].tier]?.label}
+                        />
+                      )}
                       {c.name}
                     </button>
                   </td>

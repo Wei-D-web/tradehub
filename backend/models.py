@@ -38,6 +38,8 @@ class Customer(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
+    price_tolerance_score = Column(Float, nullable=True)   # 0-100, computed from pricing analysis
+    price_tier = Column(String(10), nullable=True)          # premium / standard / value / null
 
     contacts = relationship("CustomerContact", back_populates="customer", cascade="all, delete-orphan")
     quotations = relationship("Quotation", back_populates="customer")

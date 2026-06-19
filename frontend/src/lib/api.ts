@@ -244,4 +244,12 @@ export const api = {
     update: (id: number, body: Record<string, unknown>) => put(`/leads/${id}`, body),
     delete: (id: number) => del(`/leads/${id}`),
   },
+
+  // Pricing Intelligence
+  pricing: {
+    insights: (tier = '', industry = '', search = '') =>
+      get(`/pricing/insights?tier=${encodeURIComponent(tier)}&industry=${encodeURIComponent(industry)}&search=${encodeURIComponent(search)}`),
+    summary: () => get('/pricing/summary'),
+    customer: (id: number) => get(`/pricing/customer/${id}`),
+  },
 }
