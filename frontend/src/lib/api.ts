@@ -252,4 +252,23 @@ export const api = {
     summary: () => get('/pricing/summary'),
     customer: (id: number) => get(`/pricing/customer/${id}`),
   },
+
+  // Customs Operations (截关工具)
+  customsOps: {
+    list: (search = '') => get(`/customs-ops?search=${encodeURIComponent(search)}`),
+    get: (id: number) => get(`/customs-ops/${id}`),
+    create: (body: Record<string, unknown>) => post('/customs-ops', body),
+    update: (id: number, body: Record<string, unknown>) => put(`/customs-ops/${id}`, body),
+    delete: (id: number) => del(`/customs-ops/${id}`),
+    upload: (id: number, files: FormData) =>
+      fetch(`${BASE}/customs-ops/${id}/upload`, { method: 'POST', body: files }).then(r => {
+        if (!r.ok) throw new Error('上传失败')
+        return r.json()
+      }),
+    uploads: (id: number) => get(`/customs-ops/${id}/uploads`),
+    deleteUpload: (id: number, filename: string) => del(`/customs-ops/${id}/uploads/${encodeURIComponent(filename)}`),
+    generate: (id: number, tables: string[]) => post(`/customs-ops/${id}/generate`, { job_id: id, tables }),
+    download: (id: number, filename: string) => `${BASE}/customs-ops/${id}/download/${encodeURIComponent(filename)}`,
+    downloadZip: (id: number) => `${BASE}/customs-ops/${id}/download-zip`,
+  },
 }

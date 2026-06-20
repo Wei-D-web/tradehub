@@ -374,3 +374,277 @@ export const TIER_CONFIG: Record<string, { label: string; badgeClass: string; do
   value:    { label: '低溢价', badgeClass: 'bg-orange-100 text-orange-700 border border-orange-200', dotClass: 'bg-orange-500' },
   unknown:  { label: '未分析', badgeClass: 'bg-slate-100 text-slate-400 border border-slate-200', dotClass: 'bg-slate-300' },
 }
+
+// ── Customs Operations (截关工具) ──
+
+export interface ContainerItem {
+  container_no: string
+  seal_no: string
+  container_type: string
+  is_soc: string
+  status: string
+}
+
+export interface ProductItem {
+  seq: number
+  description: string
+  hs_code: string
+  weight: number
+  packages: number
+  pkg_unit: string
+  marks: string
+  undg: string
+  cus_code: string
+}
+
+export interface OpsJob {
+  id: number
+  job_no: string
+  customer_name: string
+  status: string
+
+  vessel_name: string
+  voyage: string
+  customs_decl_no: string
+  booking_no: string
+  pol: string
+  pod: string
+  place_of_receipt: string
+  place_of_delivery: string
+  etd: string
+  carrier: string
+
+  shipper_code: string
+  shipper_name: string
+  shipper_address: string
+  shipper_country_code: string
+  shipper_phone: string
+  shipper_fax: string
+  shipper_email: string
+  shipper_aeo: string
+
+  consignee_code: string
+  consignee_name: string
+  consignee_address: string
+  consignee_country_code: string
+  consignee_phone: string
+  consignee_fax: string
+  consignee_email: string
+  consignee_aeo: string
+  consignee_contact_person: string
+  consignee_contact_phone: string
+
+  notifier_code: string
+  notifier_name: string
+  notifier_address: string
+  notifier_country_code: string
+  notifier_phone: string
+  notifier_fax: string
+  notifier_email: string
+  notifier_aeo: string
+
+  ics2_declaration_type: string
+  ics2_member_state: string
+  mbl_no: string
+  hbl_no: string
+  mbl_total_weight: number
+  hbl_total_weight: number
+  imo: string
+  transit_countries: string
+  has_hbl: boolean
+  mbl_contract_no: string
+  hbl_contract_no: string
+  mbl_type: string
+  hbl_type: string
+  payment_type: string
+  transport_mode: string
+  container_mark: string
+
+  seller_eori: string
+  seller_name: string
+  seller_type: string
+  seller_country_code: string
+  seller_city: string
+  seller_street: string
+  seller_street_no: string
+  seller_postal_code: string
+  seller_po_box: string
+  seller_phone: string
+
+  buyer_eori: string
+  buyer_name: string
+  buyer_type: string
+  buyer_country_code: string
+  buyer_city: string
+  buyer_street: string
+  buyer_street_no: string
+  buyer_postal_code: string
+  buyer_po_box: string
+  buyer_phone: string
+
+  ics2_declarant_eori: string
+  ics2_declarant_name: string
+  ics2_declarant_country_code: string
+  ics2_declarant_city: string
+  ics2_declarant_street: string
+  ics2_declarant_street_no: string
+  ics2_declarant_postal_code: string
+  ics2_declarant_po_box: string
+  ics2_declarant_phone: string
+  ics2_declarant_email: string
+
+  containers: ContainerItem[]
+  products: ProductItem[]
+
+  loading_date: string
+  warehouse_address: string
+  warehouse_phone: string
+  receiving_company: string
+  job_no_ref: string
+  container_seal_deadline: string
+  fm_department: string
+  cc_recipient: string
+  transit_port: string
+  container_type_qty: string
+
+  ens_contact_person: string
+  ens_contact_email: string
+  ens_contact_phone: string
+  ens_contact_fax: string
+  ens_marks: string
+  ens_goods_desc: string
+
+  source_files: Array<{filename: string; size: number; path: string}>
+  generated_files: Record<string, string>
+  created_at: string
+  updated_at: string | null
+}
+
+export interface OpsJobForm {
+  customer_name: string
+
+  vessel_name: string
+  voyage: string
+  customs_decl_no: string
+  booking_no: string
+  pol: string
+  pod: string
+  place_of_receipt: string
+  place_of_delivery: string
+  etd: string
+  carrier: string
+
+  shipper_code: string
+  shipper_name: string
+  shipper_address: string
+  shipper_country_code: string
+  shipper_phone: string
+  shipper_fax: string
+  shipper_email: string
+  shipper_aeo: string
+
+  consignee_code: string
+  consignee_name: string
+  consignee_address: string
+  consignee_country_code: string
+  consignee_phone: string
+  consignee_fax: string
+  consignee_email: string
+  consignee_aeo: string
+  consignee_contact_person: string
+  consignee_contact_phone: string
+
+  notifier_code: string
+  notifier_name: string
+  notifier_address: string
+  notifier_country_code: string
+  notifier_phone: string
+  notifier_fax: string
+  notifier_email: string
+  notifier_aeo: string
+
+  ics2_declaration_type: string
+  ics2_member_state: string
+  mbl_no: string
+  hbl_no: string
+  mbl_total_weight: number
+  hbl_total_weight: number
+  imo: string
+  transit_countries: string
+  has_hbl: boolean
+  mbl_contract_no: string
+  hbl_contract_no: string
+  mbl_type: string
+  hbl_type: string
+  payment_type: string
+  transport_mode: string
+  container_mark: string
+
+  seller_eori: string
+  seller_name: string
+  seller_type: string
+  seller_country_code: string
+  seller_city: string
+  seller_street: string
+  seller_street_no: string
+  seller_postal_code: string
+  seller_po_box: string
+  seller_phone: string
+
+  buyer_eori: string
+  buyer_name: string
+  buyer_type: string
+  buyer_country_code: string
+  buyer_city: string
+  buyer_street: string
+  buyer_street_no: string
+  buyer_postal_code: string
+  buyer_po_box: string
+  buyer_phone: string
+
+  ics2_declarant_eori: string
+  ics2_declarant_name: string
+  ics2_declarant_country_code: string
+  ics2_declarant_city: string
+  ics2_declarant_street: string
+  ics2_declarant_street_no: string
+  ics2_declarant_postal_code: string
+  ics2_declarant_po_box: string
+  ics2_declarant_phone: string
+  ics2_declarant_email: string
+
+  containers: ContainerItem[]
+  products: ProductItem[]
+
+  loading_date: string
+  warehouse_address: string
+  warehouse_phone: string
+  receiving_company: string
+  job_no_ref: string
+  container_seal_deadline: string
+  fm_department: string
+  cc_recipient: string
+  transit_port: string
+  container_type_qty: string
+
+  ens_contact_person: string
+  ens_contact_email: string
+  ens_contact_phone: string
+  ens_contact_fax: string
+  ens_marks: string
+  ens_goods_desc: string
+}
+
+export const TABLE_LABELS: Record<string, string> = {
+  ens: 'ENS/VGM申报表',
+  ics2: 'ICS2舱单数据表',
+  multi_product: '多品名表',
+  manifest: '舱单表',
+  loading_notice: '做箱通知',
+}
+
+export const JOB_STATUS_LABELS: Record<string, string> = {
+  draft: '草稿',
+  generated: '已生成',
+  sent: '已发送',
+}

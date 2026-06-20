@@ -969,3 +969,433 @@ class LeadOut(BaseModel):
     @classmethod
     def _none_to_empty(cls, v: object) -> str:
         return v if v is not None else ""
+
+
+# ── Customs Operations (截关工具) ────────────────────────
+
+class ContainerItem(BaseModel):
+    container_no: str = ""
+    seal_no: str = ""
+    container_type: str = ""
+    is_soc: str = ""     # "Carrier supplied" / "Shipper supplied"
+    status: str = ""     # "EMPTY" / "NOT EMPTY"
+
+
+class ProductItem(BaseModel):
+    seq: int = 1
+    description: str = ""
+    hs_code: str = ""
+    weight: float = 0
+    packages: int = 0
+    pkg_unit: str = ""      # 包装代码 e.g. "BUNDLE", "CARTON"
+    marks: str = "N/M"
+    undg: str = ""          # UN dangerous goods code
+    cus_code: str = ""      # Customs code
+
+
+class OpsJobCreate(BaseModel):
+    customer_name: str = ""
+
+    # 船期
+    vessel_name: str = ""
+    voyage: str = ""
+    customs_decl_no: str = ""
+    booking_no: str = ""
+    pol: str = ""
+    pod: str = ""
+    place_of_receipt: str = ""
+    place_of_delivery: str = ""
+    etd: str = ""
+    carrier: str = ""
+
+    # 发货人
+    shipper_code: str = ""
+    shipper_name: str = ""
+    shipper_address: str = ""
+    shipper_country_code: str = ""
+    shipper_phone: str = ""
+    shipper_fax: str = ""
+    shipper_email: str = ""
+    shipper_aeo: str = ""
+
+    # 收货人
+    consignee_code: str = ""
+    consignee_name: str = ""
+    consignee_address: str = ""
+    consignee_country_code: str = ""
+    consignee_phone: str = ""
+    consignee_fax: str = ""
+    consignee_email: str = ""
+    consignee_aeo: str = ""
+    consignee_contact_person: str = ""
+    consignee_contact_phone: str = ""
+
+    # 通知人
+    notifier_code: str = ""
+    notifier_name: str = ""
+    notifier_address: str = ""
+    notifier_country_code: str = ""
+    notifier_phone: str = ""
+    notifier_fax: str = ""
+    notifier_email: str = ""
+    notifier_aeo: str = ""
+
+    # ICS2
+    ics2_declaration_type: str = "F15"
+    ics2_member_state: str = ""
+    mbl_no: str = ""
+    hbl_no: str = ""
+    mbl_total_weight: float = 0
+    hbl_total_weight: float = 0
+    imo: str = ""
+    transit_countries: str = ""
+    has_hbl: bool = True
+    mbl_contract_no: str = ""
+    hbl_contract_no: str = ""
+    mbl_type: str = "MASTER BILL OF LADING"
+    hbl_type: str = "HOUSE BILL OF LADING"
+    payment_type: str = "PAYMENT IN CASH"
+    transport_mode: str = "MARITIME TRANSPORT"
+    container_mark: str = "集装箱"
+
+    seller_eori: str = ""
+    seller_name: str = ""
+    seller_type: str = ""
+    seller_country_code: str = ""
+    seller_city: str = ""
+    seller_street: str = ""
+    seller_street_no: str = ""
+    seller_postal_code: str = ""
+    seller_po_box: str = ""
+    seller_phone: str = ""
+
+    buyer_eori: str = ""
+    buyer_name: str = ""
+    buyer_type: str = ""
+    buyer_country_code: str = ""
+    buyer_city: str = ""
+    buyer_street: str = ""
+    buyer_street_no: str = ""
+    buyer_postal_code: str = ""
+    buyer_po_box: str = ""
+    buyer_phone: str = ""
+
+    ics2_declarant_eori: str = ""
+    ics2_declarant_name: str = ""
+    ics2_declarant_country_code: str = ""
+    ics2_declarant_city: str = ""
+    ics2_declarant_street: str = ""
+    ics2_declarant_street_no: str = ""
+    ics2_declarant_postal_code: str = ""
+    ics2_declarant_po_box: str = ""
+    ics2_declarant_phone: str = ""
+    ics2_declarant_email: str = ""
+
+    # 箱货
+    containers: list[ContainerItem] = []
+    products: list[ProductItem] = []
+
+    # 做箱通知
+    loading_date: str = ""
+    warehouse_address: str = ""
+    warehouse_phone: str = ""
+    receiving_company: str = ""
+    job_no_ref: str = ""
+    container_seal_deadline: str = ""
+    fm_department: str = ""
+    cc_recipient: str = ""
+    transit_port: str = ""
+    container_type_qty: str = ""
+
+    # ENS
+    ens_contact_person: str = ""
+    ens_contact_email: str = ""
+    ens_contact_phone: str = ""
+    ens_contact_fax: str = ""
+    ens_marks: str = "N/M"
+    ens_goods_desc: str = ""
+
+
+class OpsJobUpdate(BaseModel):
+    customer_name: Optional[str] = None
+    status: Optional[str] = None
+
+    vessel_name: Optional[str] = None
+    voyage: Optional[str] = None
+    customs_decl_no: Optional[str] = None
+    booking_no: Optional[str] = None
+    pol: Optional[str] = None
+    pod: Optional[str] = None
+    place_of_receipt: Optional[str] = None
+    place_of_delivery: Optional[str] = None
+    etd: Optional[str] = None
+    carrier: Optional[str] = None
+
+    shipper_code: Optional[str] = None
+    shipper_name: Optional[str] = None
+    shipper_address: Optional[str] = None
+    shipper_country_code: Optional[str] = None
+    shipper_phone: Optional[str] = None
+    shipper_fax: Optional[str] = None
+    shipper_email: Optional[str] = None
+    shipper_aeo: Optional[str] = None
+
+    consignee_code: Optional[str] = None
+    consignee_name: Optional[str] = None
+    consignee_address: Optional[str] = None
+    consignee_country_code: Optional[str] = None
+    consignee_phone: Optional[str] = None
+    consignee_fax: Optional[str] = None
+    consignee_email: Optional[str] = None
+    consignee_aeo: Optional[str] = None
+    consignee_contact_person: Optional[str] = None
+    consignee_contact_phone: Optional[str] = None
+
+    notifier_code: Optional[str] = None
+    notifier_name: Optional[str] = None
+    notifier_address: Optional[str] = None
+    notifier_country_code: Optional[str] = None
+    notifier_phone: Optional[str] = None
+    notifier_fax: Optional[str] = None
+    notifier_email: Optional[str] = None
+    notifier_aeo: Optional[str] = None
+
+    ics2_declaration_type: Optional[str] = None
+    ics2_member_state: Optional[str] = None
+    mbl_no: Optional[str] = None
+    hbl_no: Optional[str] = None
+    mbl_total_weight: Optional[float] = None
+    hbl_total_weight: Optional[float] = None
+    imo: Optional[str] = None
+    transit_countries: Optional[str] = None
+    has_hbl: Optional[bool] = None
+    mbl_contract_no: Optional[str] = None
+    hbl_contract_no: Optional[str] = None
+    mbl_type: Optional[str] = None
+    hbl_type: Optional[str] = None
+    payment_type: Optional[str] = None
+    transport_mode: Optional[str] = None
+    container_mark: Optional[str] = None
+
+    seller_eori: Optional[str] = None
+    seller_name: Optional[str] = None
+    seller_type: Optional[str] = None
+    seller_country_code: Optional[str] = None
+    seller_city: Optional[str] = None
+    seller_street: Optional[str] = None
+    seller_street_no: Optional[str] = None
+    seller_postal_code: Optional[str] = None
+    seller_po_box: Optional[str] = None
+    seller_phone: Optional[str] = None
+
+    buyer_eori: Optional[str] = None
+    buyer_name: Optional[str] = None
+    buyer_type: Optional[str] = None
+    buyer_country_code: Optional[str] = None
+    buyer_city: Optional[str] = None
+    buyer_street: Optional[str] = None
+    buyer_street_no: Optional[str] = None
+    buyer_postal_code: Optional[str] = None
+    buyer_po_box: Optional[str] = None
+    buyer_phone: Optional[str] = None
+
+    ics2_declarant_eori: Optional[str] = None
+    ics2_declarant_name: Optional[str] = None
+    ics2_declarant_country_code: Optional[str] = None
+    ics2_declarant_city: Optional[str] = None
+    ics2_declarant_street: Optional[str] = None
+    ics2_declarant_street_no: Optional[str] = None
+    ics2_declarant_postal_code: Optional[str] = None
+    ics2_declarant_po_box: Optional[str] = None
+    ics2_declarant_phone: Optional[str] = None
+    ics2_declarant_email: Optional[str] = None
+
+    containers: Optional[list[ContainerItem]] = None
+    products: Optional[list[ProductItem]] = None
+
+    loading_date: Optional[str] = None
+    warehouse_address: Optional[str] = None
+    warehouse_phone: Optional[str] = None
+    receiving_company: Optional[str] = None
+    job_no_ref: Optional[str] = None
+    container_seal_deadline: Optional[str] = None
+    fm_department: Optional[str] = None
+    cc_recipient: Optional[str] = None
+    transit_port: Optional[str] = None
+    container_type_qty: Optional[str] = None
+
+    ens_contact_person: Optional[str] = None
+    ens_contact_email: Optional[str] = None
+    ens_contact_phone: Optional[str] = None
+    ens_contact_fax: Optional[str] = None
+    ens_marks: Optional[str] = None
+    ens_goods_desc: Optional[str] = None
+
+
+class OpsJobOut(BaseModel):
+    id: int
+    job_no: str
+    customer_name: str
+    status: str
+
+    vessel_name: str
+    voyage: str
+    customs_decl_no: str
+    booking_no: str
+    pol: str
+    pod: str
+    place_of_receipt: str
+    place_of_delivery: str
+    etd: str
+    carrier: str
+
+    shipper_code: str
+    shipper_name: str
+    shipper_address: str
+    shipper_country_code: str
+    shipper_phone: str
+    shipper_fax: str
+    shipper_email: str
+    shipper_aeo: str
+
+    consignee_code: str
+    consignee_name: str
+    consignee_address: str
+    consignee_country_code: str
+    consignee_phone: str
+    consignee_fax: str
+    consignee_email: str
+    consignee_aeo: str
+    consignee_contact_person: str
+    consignee_contact_phone: str
+
+    notifier_code: str
+    notifier_name: str
+    notifier_address: str
+    notifier_country_code: str
+    notifier_phone: str
+    notifier_fax: str
+    notifier_email: str
+    notifier_aeo: str
+
+    ics2_declaration_type: str
+    ics2_member_state: str
+    mbl_no: str
+    hbl_no: str
+    mbl_total_weight: float
+    hbl_total_weight: float
+    imo: str
+    transit_countries: str
+    has_hbl: bool
+    mbl_contract_no: str
+    hbl_contract_no: str
+    mbl_type: str
+    hbl_type: str
+    payment_type: str
+    transport_mode: str
+    container_mark: str
+
+    seller_eori: str
+    seller_name: str
+    seller_type: str
+    seller_country_code: str
+    seller_city: str
+    seller_street: str
+    seller_street_no: str
+    seller_postal_code: str
+    seller_po_box: str
+    seller_phone: str
+
+    buyer_eori: str
+    buyer_name: str
+    buyer_type: str
+    buyer_country_code: str
+    buyer_city: str
+    buyer_street: str
+    buyer_street_no: str
+    buyer_postal_code: str
+    buyer_po_box: str
+    buyer_phone: str
+
+    ics2_declarant_eori: str
+    ics2_declarant_name: str
+    ics2_declarant_country_code: str
+    ics2_declarant_city: str
+    ics2_declarant_street: str
+    ics2_declarant_street_no: str
+    ics2_declarant_postal_code: str
+    ics2_declarant_po_box: str
+    ics2_declarant_phone: str
+    ics2_declarant_email: str
+
+    containers: list[ContainerItem]
+    products: list[ProductItem]
+
+    loading_date: str
+    warehouse_address: str
+    warehouse_phone: str
+    receiving_company: str
+    job_no_ref: str
+    container_seal_deadline: str
+    fm_department: str
+    cc_recipient: str
+    transit_port: str
+    container_type_qty: str
+
+    ens_contact_person: str
+    ens_contact_email: str
+    ens_contact_phone: str
+    ens_contact_fax: str
+    ens_marks: str
+    ens_goods_desc: str
+
+    source_files: list = []
+    generated_files: dict = {}
+    created_at: datetime
+    updated_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+    @field_validator(
+        'job_no', 'customer_name', 'vessel_name', 'voyage',
+        'customs_decl_no', 'booking_no', 'pol', 'pod',
+        'place_of_receipt', 'place_of_delivery', 'etd', 'carrier',
+        'shipper_code', 'shipper_name', 'shipper_address',
+        'shipper_country_code', 'shipper_phone', 'shipper_fax',
+        'shipper_email', 'shipper_aeo', 'consignee_code',
+        'consignee_name', 'consignee_address', 'consignee_country_code',
+        'consignee_phone', 'consignee_fax', 'consignee_email',
+        'consignee_aeo', 'consignee_contact_person', 'consignee_contact_phone',
+        'notifier_code', 'notifier_name', 'notifier_address',
+        'notifier_country_code', 'notifier_phone', 'notifier_fax',
+        'notifier_email', 'notifier_aeo', 'ics2_declaration_type',
+        'ics2_member_state', 'mbl_no', 'hbl_no', 'imo', 'transit_countries',
+        'mbl_contract_no', 'hbl_contract_no', 'mbl_type', 'hbl_type',
+        'payment_type', 'transport_mode', 'container_mark',
+        'seller_eori', 'seller_name', 'seller_type', 'seller_country_code',
+        'seller_city', 'seller_street', 'seller_street_no',
+        'seller_postal_code', 'seller_po_box', 'seller_phone',
+        'buyer_eori', 'buyer_name', 'buyer_type', 'buyer_country_code',
+        'buyer_city', 'buyer_street', 'buyer_street_no',
+        'buyer_postal_code', 'buyer_po_box', 'buyer_phone',
+        'ics2_declarant_eori', 'ics2_declarant_name',
+        'ics2_declarant_country_code', 'ics2_declarant_city',
+        'ics2_declarant_street', 'ics2_declarant_street_no',
+        'ics2_declarant_postal_code', 'ics2_declarant_po_box',
+        'ics2_declarant_phone', 'ics2_declarant_email',
+        'loading_date', 'warehouse_address', 'warehouse_phone',
+        'receiving_company', 'job_no_ref', 'container_seal_deadline',
+        'fm_department', 'cc_recipient', 'transit_port', 'container_type_qty',
+        'ens_contact_person', 'ens_contact_email', 'ens_contact_phone',
+        'ens_contact_fax', 'ens_marks', 'ens_goods_desc',
+        mode='before',
+    )
+    @classmethod
+    def _none_to_empty(cls, v: object) -> str:
+        return v if v is not None else ""
+
+
+class GenerateRequest(BaseModel):
+    job_id: int
+    tables: list[str] = ["ens", "ics2", "manifest", "loading_notice"]

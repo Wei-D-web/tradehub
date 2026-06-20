@@ -35,6 +35,7 @@ from routers import (
     contracts, logistics, finance,
     tickets, rma, technicians, knowledge,
     dashboard, certifications, exhibitions, leads, pricing,
+    customs_ops,
 )
 
 PRODUCTION = "--production" in sys.argv or os.getenv("TRADEHUB_PRODUCTION", "").lower() in ("1", "true", "yes")
@@ -321,6 +322,7 @@ app.include_router(certifications.router)
 app.include_router(exhibitions.router)
 app.include_router(leads.router)
 app.include_router(pricing.router)   # Pricing Intelligence — auto-learns customer price tolerance
+app.include_router(customs_ops.router)    # 截关工具 — ENS/ICS2/舱单/多品名生成
 
 
 # ── Auth endpoints ──

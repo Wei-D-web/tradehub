@@ -501,3 +501,144 @@ class Lead(Base):
     updated_at = Column(DateTime, default=_now, onupdate=_now)
 
     exhibition = relationship("Exhibition", back_populates="leads")
+
+
+# ═══════════════════════════════════════════════════════
+# Customs Operations (截关工具)
+# ═══════════════════════════════════════════════════════
+
+class OpsJob(Base):
+    __tablename__ = "ops_jobs"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    job_no = Column(String(30), default="")
+    customer_name = Column(String(200), default="")
+    status = Column(String(20), default="draft")  # draft / generated / sent
+
+    # ── 船期信息 (from BC) ──
+    vessel_name = Column(String(100), default="")
+    voyage = Column(String(50), default="")
+    customs_decl_no = Column(String(50), default="")
+    booking_no = Column(String(50), default="")
+    pol = Column(String(50), default="")              # Port of Loading
+    pod = Column(String(50), default="")              # Port of Discharge
+    place_of_receipt = Column(String(100), default="")
+    place_of_delivery = Column(String(100), default="")
+    etd = Column(String(20), default="")              # Estimated Departure
+    carrier = Column(String(100), default="")         # 船公司
+
+    # ── 参与方 (发货人/收货人/通知人) ──
+    shipper_code = Column(String(50), default="")
+    shipper_name = Column(String(300), default="")
+    shipper_address = Column(String(500), default="")
+    shipper_country_code = Column(String(5), default="")
+    shipper_phone = Column(String(50), default="")
+    shipper_fax = Column(String(50), default="")
+    shipper_email = Column(String(200), default="")
+    shipper_aeo = Column(String(50), default="")
+
+    consignee_code = Column(String(50), default="")
+    consignee_name = Column(String(300), default="")
+    consignee_address = Column(String(500), default="")
+    consignee_country_code = Column(String(5), default="")
+    consignee_phone = Column(String(50), default="")
+    consignee_fax = Column(String(50), default="")
+    consignee_email = Column(String(200), default="")
+    consignee_aeo = Column(String(50), default="")
+    consignee_contact_person = Column(String(100), default="")
+    consignee_contact_phone = Column(String(50), default="")
+
+    notifier_code = Column(String(50), default="")
+    notifier_name = Column(String(300), default="")
+    notifier_address = Column(String(500), default="")
+    notifier_country_code = Column(String(5), default="")
+    notifier_phone = Column(String(50), default="")
+    notifier_fax = Column(String(50), default="")
+    notifier_email = Column(String(200), default="")
+    notifier_aeo = Column(String(50), default="")
+
+    # ── ICS2 专用 ──
+    ics2_declaration_type = Column(String(10), default="F15")  # F15 / F17
+    ics2_member_state = Column(String(5), default="")          # 成员国代码
+    mbl_no = Column(String(50), default="")
+    hbl_no = Column(String(50), default="")
+    mbl_total_weight = Column(Float, default=0)
+    hbl_total_weight = Column(Float, default=0)
+    imo = Column(String(50), default="")
+    transit_countries = Column(String(200), default="")        # CN|DE format
+    has_hbl = Column(Boolean, default=True)
+    mbl_contract_no = Column(String(50), default="")
+    hbl_contract_no = Column(String(50), default="")
+    mbl_type = Column(String(50), default="MASTER BILL OF LADING")
+    hbl_type = Column(String(50), default="HOUSE BILL OF LADING")
+    payment_type = Column(String(50), default="PAYMENT IN CASH")
+    transport_mode = Column(String(50), default="MARITIME TRANSPORT")
+    container_mark = Column(String(20), default="集装箱")
+
+    # ICS2 卖家信息
+    seller_eori = Column(String(50), default="")
+    seller_name = Column(String(300), default="")
+    seller_type = Column(String(50), default="")
+    seller_country_code = Column(String(5), default="")
+    seller_city = Column(String(100), default="")
+    seller_street = Column(String(300), default="")
+    seller_street_no = Column(String(20), default="")
+    seller_postal_code = Column(String(20), default="")
+    seller_po_box = Column(String(50), default="")
+    seller_phone = Column(String(50), default="")
+
+    # ICS2 买家信息
+    buyer_eori = Column(String(50), default="")
+    buyer_name = Column(String(300), default="")
+    buyer_type = Column(String(50), default="")
+    buyer_country_code = Column(String(5), default="")
+    buyer_city = Column(String(100), default="")
+    buyer_street = Column(String(300), default="")
+    buyer_street_no = Column(String(20), default="")
+    buyer_postal_code = Column(String(20), default="")
+    buyer_po_box = Column(String(50), default="")
+    buyer_phone = Column(String(50), default="")
+
+    # ICS2 申报方
+    ics2_declarant_eori = Column(String(50), default="")
+    ics2_declarant_name = Column(String(300), default="")
+    ics2_declarant_country_code = Column(String(5), default="")
+    ics2_declarant_city = Column(String(100), default="")
+    ics2_declarant_street = Column(String(300), default="")
+    ics2_declarant_street_no = Column(String(20), default="")
+    ics2_declarant_postal_code = Column(String(20), default="")
+    ics2_declarant_po_box = Column(String(50), default="")
+    ics2_declarant_phone = Column(String(50), default="")
+    ics2_declarant_email = Column(String(200), default="")
+
+    # ── 箱货明细 (JSON) ──
+    containers = Column(JSON, default=list)
+    # [{container_no, seal_no, container_type, is_soc, status}]
+    products = Column(JSON, default=list)
+    # [{seq, description, hs_code, weight, packages, pkg_unit, marks, undg, cus_code}]
+
+    # ── 做箱通知 ──
+    loading_date = Column(String(20), default="")
+    warehouse_address = Column(String(500), default="")
+    warehouse_phone = Column(String(50), default="")
+    receiving_company = Column(String(200), default="")
+    job_no_ref = Column(String(30), default="")
+    container_seal_deadline = Column(String(20), default="")
+    fm_department = Column(String(100), default="")
+    cc_recipient = Column(String(200), default="")
+    transit_port = Column(String(50), default="")
+    container_type_qty = Column(String(100), default="")
+
+    # ── ENS 专用 ──
+    ens_contact_person = Column(String(100), default="")
+    ens_contact_email = Column(String(200), default="")
+    ens_contact_phone = Column(String(50), default="")
+    ens_contact_fax = Column(String(50), default="")
+    ens_marks = Column(String(100), default="N/M")
+    ens_goods_desc = Column(String(500), default="")
+
+    # ── 元数据 ──
+    source_files = Column(JSON, default=list)
+    generated_files = Column(JSON, default=dict)
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
