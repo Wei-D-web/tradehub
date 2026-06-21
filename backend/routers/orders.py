@@ -11,6 +11,7 @@ from database import get_db
 from models import Order, OrderTimeline
 from schemas import OrderCreate, OrderUpdate, OrderOut, MsgResponse
 from audit import audit_log
+from notify_service import notify_sync
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
@@ -97,6 +98,7 @@ def create_order(body: OrderCreate, db: Session = Depends(get_db), request: Requ
     db.refresh(o)
     if request:
         audit_log(db, "create", "order", o.id, _client_ip(request), f"新建订单: {o.order_no} (金额 ¥{o.total_revenue:,.0f})")
+    notify_sync("📋 新订单", f"{o.order_no} — ¥{o.total_revenue:,.0f}", group="订单")
     return _enrich(o)
 
 
@@ -115,6 +117,7 @@ def update_order(oid: int, body: OrderUpdate, db: Session = Depends(get_db), req
             changed_financials[k] = (getattr(o, k, 0), new_val)
 
     # Handle status transition
+    old_status = o.status
     if body.status and body.status != o.status:
         valid = VALID_TRANSITIONS.get(o.status, [])
         if body.status not in valid:
@@ -127,6 +130,17 @@ def update_order(oid: int, body: OrderUpdate, db: Session = Depends(get_db), req
     o.net_profit = _calc_profit(o)
     db.commit()
     db.refresh(o)
+
+    # ── Notify on important status transitions ──
+    new_status = o.status
+    if old_status != new_status:
+        milestone_statuses = {"completed": "✅", "delivered": "📦", "shipped": "🚢", "cancelled": "❌"}
+        emoji = milestone_statuses.get(new_status, "🔄")
+        notify_sync(
+            f"{emoji} 订单 {new_status}",
+            f"{o.order_no} — {old_status} → {new_status}",
+            group="订单",
+        )
 
     if request and changed_financials:
         detail = ", ".join(f"{k}: {old}→{new}" for k, (old, new) in changed_financials.items())

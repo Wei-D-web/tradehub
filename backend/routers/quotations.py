@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import Quotation, Customer
 from schemas import QuotationCreate, QuotationUpdate, QuotationOut, MsgResponse
+from notify_service import notify_sync
 
 router = APIRouter(prefix="/api/quotations", tags=["quotations"])
 
@@ -108,6 +109,7 @@ def accept_quotation(qid: int, db: Session = Depends(get_db)):
     q.status = "accepted"
     db.commit()
     db.refresh(q)
+    notify_sync("🤝 报价已接受", f"报价单 #{q.id} — {q.customer_name or '未知客户'}", group="报价")
     return _enrich(q)
 
 

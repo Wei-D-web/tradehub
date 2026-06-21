@@ -28,6 +28,9 @@ import uvicorn
 
 from security_headers import SecurityHeadersMiddleware
 
+from notify_service import set_ws_broadcast
+from websocket import handle_notifications, broadcast
+
 from database import engine, Base
 from routers import (
     customers, suppliers, products,
@@ -272,9 +275,11 @@ def _migrate_db():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Create tables on startup + migrate missing columns."""
+    """Create tables on startup + migrate missing columns + wire notifications."""
     Base.metadata.create_all(bind=engine)
     _migrate_db()
+    # Wire WebSocket broadcast → notify_service so Bark+WS fire together
+    set_ws_broadcast(broadcast)
     yield
 
 
@@ -323,6 +328,9 @@ app.include_router(exhibitions.router)
 app.include_router(leads.router)
 app.include_router(pricing.router)   # Pricing Intelligence — auto-learns customer price tolerance
 app.include_router(customs_ops.router)    # 截关工具 — ENS/ICS2/舱单/多品名生成
+
+# ── WebSocket 实时通知 ──
+app.add_api_websocket_route("/ws/notifications", handle_notifications)
 
 
 # ── Auth endpoints ──

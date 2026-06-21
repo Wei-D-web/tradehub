@@ -5,9 +5,10 @@ import {
   Wrench, RotateCcw, UserCog, BookOpen,
   Landmark, BarChart3, Menu, X, LogOut,
   ShieldCheck, Presentation, UserPlus, TrendingUp,
-  ClipboardCheck,
+  ClipboardCheck, Bell,
 } from 'lucide-react'
 import { ToastProvider } from './components/Toast'
+import NotificationListener from './components/NotificationListener'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import LoginScreen from './components/LoginScreen'
 
@@ -131,6 +132,7 @@ export default function App() {
 
   return (
     <ToastProvider>
+    <NotificationListener />
     <div className="flex h-screen overflow-hidden">
       {/* Mobile overlay */}
       {sidebarOpen && (
@@ -189,7 +191,13 @@ export default function App() {
           <div className="text-sm font-medium text-slate-700">
             {nav.find(n => n.key === active)?.label || '进贸通'}
           </div>
-          <div className="w-8" />{/* spacer */}
+          <button
+            className="relative text-slate-400 hover:text-blue-500 transition-colors"
+            title="实时通知 — 新订单/收款/报价状态变更自动推送"
+          >
+            <Bell className="w-5 h-5" />
+            <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+          </button>
         </header>
 
         <div className="p-4 lg:p-6">

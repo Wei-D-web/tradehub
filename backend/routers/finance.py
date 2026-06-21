@@ -14,6 +14,7 @@ from schemas import (
     PaymentCreate, PaymentOut,
     ProfitSummary, MsgResponse,
 )
+from notify_service import notify_sync
 from audit import audit_log
 
 router = APIRouter(prefix="/api/finance", tags=["finance"])
@@ -116,16 +117,27 @@ def create_payment(body: PaymentCreate, db: Session = Depends(get_db)):
 
     # Auto-update invoice status if fully paid
     inv = db.query(Invoice).get(body.invoice_id)
+    was_paid = False
     if inv:
+        was_paid = inv.status == "paid"
         total_paid = db.query(func.sum(Payment.amount)).filter(
             Payment.invoice_id == body.invoice_id
         ).scalar() or 0
-        if total_paid + body.amount >= inv.amount:
+        if total_paid + body.amount >= inv.amount and not was_paid:
             inv.status = "paid"
             inv.paid_at = datetime.utcnow()
 
     db.commit()
     db.refresh(p)
+
+    # ── Notify when invoice becomes fully paid ──
+    if inv and inv.status == "paid" and not was_paid:
+        notify_sync(
+            "💰 已收款",
+            f"{inv.invoice_no} — ¥{inv.amount:,.0f} 已全额到账",
+            group="财务",
+        )
+
     return p
 
 
